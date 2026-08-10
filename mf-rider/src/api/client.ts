@@ -7,8 +7,7 @@
 // Override without editing code by setting EXPO_PUBLIC_API_URL in mf-rider/.env
 const DEFAULT_API_URL = "http://localhost:4000";
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_API_URL;
-
+export const API_BASE_URL = "http://192.168.1.8:4000";
 export class ApiError extends Error {
   status: number;
 

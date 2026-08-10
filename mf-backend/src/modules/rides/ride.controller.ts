@@ -15,9 +15,13 @@ function requireAuthContext(req: Request) {
 }
 
 export async function createRide(req: Request, res: Response) {
+  console.log("🔥 CREATE RIDE HIT", req.body);
+
   const auth = requireAuthContext(req);
   const input = req.body as CreateRideInput;
+
   const ride = await rideService.createRide(auth.userId, input);
+
   res.status(201).json({ success: true, data: { ride } });
 }
 

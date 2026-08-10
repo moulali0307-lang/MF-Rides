@@ -1,35 +1,67 @@
 import { useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import { BookRideScreen } from "./src/screens/BookRideScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { colors } from "./src/theme/colors";
 
 type AuthScreen = "welcome" | "register" | "login";
+type AppScreen = "home" | "bookRide";
 
 function RootNavigator() {
   const { user, isRestoring } = useAuth();
-  const [authScreen, setAuthScreen] = useState<AuthScreen>("welcome");
+
+  const [authScreen, setAuthScreen] =
+    useState<AuthScreen>("welcome");
+
+  const [appScreen, setAppScreen] =
+    useState<AppScreen>("home");
 
   if (isRestoring) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator
+          size="large"
+          color={colors.accent}
+        />
       </View>
     );
   }
 
   if (user) {
-    return <HomeScreen />;
+    if (appScreen === "bookRide") {
+      return (
+        <BookRideScreen
+          onBack={() => setAppScreen("home")}
+        />
+      );
+    }
+
+    return (
+      <HomeScreen
+        onBookRide={() => setAppScreen("bookRide")}
+      />
+    );
   }
 
   switch (authScreen) {
     case "register":
-      return <RegisterScreen onGoToLogin={() => setAuthScreen("login")} />;
+      return (
+        <RegisterScreen
+          onGoToLogin={() => setAuthScreen("login")}
+        />
+      );
+
     case "login":
-      return <LoginScreen onGoToRegister={() => setAuthScreen("register")} />;
+      return (
+        <LoginScreen
+          onGoToRegister={() => setAuthScreen("register")}
+        />
+      );
+
     case "welcome":
     default:
       return (
