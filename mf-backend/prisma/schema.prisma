@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  RIDER
+  PARTNER
+  ADMIN
+}
+
+enum RideStatus {
+  REQUESTED
+  ACCEPTED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  fullName     String
+  phoneNumber  String   @unique
+  email        String?  @unique
+  passwordHash String
+  role         Role     @default(RIDER)
+  isOnline     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ridesAsPassenger Ride[] @relation("PassengerRides")
+  ridesAsRider     Ride[] @relation("RiderRides")
+
+  @@map("users")
+}
+
+model Ride {
+  id     String     @id @default(uuid())
+  status RideStatus @default(REQUESTED)
+
+  passengerId String
+  passenger   User   @relation("PassengerRides", fields: [passengerId], references: [id])
+
+  riderId String?
+  rider   User?   @relation("RiderRides", fields: [riderId], references: [id])
+
+  pickupAddress     String
+  pickupLatitude    Float
+  pickupLongitude   Float
+
+  destinationAddress   String
+  destinationLatitude  Float
+  destinationLongitude Float
+
+  requestedAt DateTime  @default(now())
+  acceptedAt  DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  cancelledBy       String?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([riderId])
+  @@index([passengerId])
+  @@map("rides")
+}
