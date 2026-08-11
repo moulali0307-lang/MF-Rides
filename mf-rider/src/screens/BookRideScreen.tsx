@@ -22,34 +22,36 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
   const [destinationAddress, setDestinationAddress] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleBookRide() {
-    alert("1. FUNCTION STARTED");
-    
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-    if (!pickupAddress.trim() || !destinationAddress.trim()) {
-      Alert.alert(
-        "Missing details",
-        "Please enter pickup and destination.",
-      );
+  async function handleBookRide() {
+    if (loading) {
       return;
     }
-    alert("2. TOKEN = " + (token ? "YES" : "NO"));
+
+    setSuccessMessage("");
+    setErrorMessage("");
+
+    if (!pickupAddress.trim() || !destinationAddress.trim()) {
+      setErrorMessage("Please enter pickup and destination.");
+      return;
+    }
 
     if (!token) {
-      Alert.alert("Login required", "Please login again.");
+      setErrorMessage("Your login session has expired. Please login again.");
       return;
     }
 
     setLoading(true);
 
     try {
-      alert("3. CALLING BACKEND");
-
       const result = await createRide(
         {
           pickupAddress: pickupAddress.trim(),
           pickupLatitude: 16.1234,
           pickupLongitude: 80.1234,
+
           destinationAddress: destinationAddress.trim(),
           destinationLatitude: 16.4567,
           destinationLongitude: 80.4567,
@@ -57,21 +59,31 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
         token,
       );
 
-      alert("4. BACKEND RESPONSE RECEIVED");
-      Alert.alert(
-        "Ride requested 🚕",
-        `Ride ID: ${result.ride.id}`,
+      console.log("CREATE RIDE RESULT:", result);
+
+      if (!result?.ride?.id) {
+        console.error("Unexpected ride response:", result);
+
+        throw new Error(
+          "Ride was created, but the server returned an unexpected response.",
+        );
+      }
+
+      setSuccessMessage(
+        `Ride requested successfully!\nRide ID: ${result.ride.id}\n\nLooking for a nearby driver...`,
       );
 
       setPickupAddress("");
       setDestinationAddress("");
     } catch (error) {
+      console.error("BOOK RIDE ERROR:", error);
+
       const message =
         error instanceof Error
           ? error.message
           : "Unable to create ride.";
 
-      Alert.alert("Booking failed", message);
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -79,7 +91,10 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
 
   return (
     <View style={styles.container}>
-      <Pressable onPress={onBack}>
+      <Pressable
+        onPress={onBack}
+        disabled={loading}
+      >
         <Text style={styles.backText}>← Back</Text>
       </Pressable>
 
@@ -89,32 +104,83 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
         Where do you want to go?
       </Text>
 
-      <Text style={styles.label}>Pickup location</Text>
+      {successMessage ? (
+        <View style={styles.successBox}>
+          <Text style={styles.successTitle}>
+            🚕 Ride Requested
+          </Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter pickup location"
-        placeholderTextColor={colors.textMuted}
-        value={pickupAddress}
-        onChangeText={setPickupAddress}
-      />
+          <Text style={styles.successText}>
+            {successMessage}
+          </Text>
 
-      <Text style={styles.label}>Destination</Text>
+          <Pressable
+            style={styles.homeButton}
+            onPress={onBack}
+          >
+            <Text style={styles.buttonText}>
+              Back to Home
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter destination"
-        placeholderTextColor={colors.textMuted}
-        value={destinationAddress}
-        onChangeText={setDestinationAddress}
-      />
+      {errorMessage ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>
+            Booking failed
+          </Text>
 
-    <Pressable
-  style={styles.button}
-  onPress={handleBookRide}
->
-  <Text style={styles.buttonText}>Confirm Ride</Text>
-</Pressable>
+          <Text style={styles.errorText}>
+            {errorMessage}
+          </Text>
+        </View>
+      ) : null}
+
+      {!successMessage ? (
+        <>
+          <Text style={styles.label}>
+            Pickup location
+          </Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Enter pickup location"
+            placeholderTextColor={colors.textMuted}
+            value={pickupAddress}
+            onChangeText={setPickupAddress}
+            editable={!loading}
+          />
+
+          <Text style={styles.label}>
+            Destination
+          </Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Enter destination"
+            placeholderTextColor={colors.textMuted}
+            value={destinationAddress}
+            onChangeText={setDestinationAddress}
+            editable={!loading}
+          />
+
+          <Pressable
+            style={[
+              styles.button,
+              loading && styles.buttonDisabled,
+            ]}
+            onPress={handleBookRide}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading
+                ? "Requesting Ride..."
+                : "Confirm Ride"}
+            </Text>
+          </Pressable>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -178,9 +244,61 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 
+  homeButton: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    marginTop: spacing.lg,
+  },
+
   buttonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+  },
+
+  successBox: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+
+  successTitle: {
+    color: colors.accent,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
+  },
+
+  successText: {
+    color: colors.text,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+
+  errorBox: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#d9534f",
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+
+  errorTitle: {
+    color: "#d9534f",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: spacing.xs,
+  },
+
+  errorText: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 21,
   },
 });
