@@ -57,6 +57,7 @@ export default function App() {
   const [partnerName, setPartnerName] = useState("");
 
   const [rides, setRides] = useState<Ride[]>([]);
+  const [activeRide, setActiveRide] = useState<Ride | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
@@ -216,6 +217,10 @@ export default function App() {
       setRides((current) =>
         current.filter((ride) => ride.id !== rideId),
       );
+
+      if (payload.data?.ride) {
+        setActiveRide(payload.data.ride);
+      }
     } catch (error) {
       console.error("ACCEPT RIDE ERROR:", error);
 
@@ -229,10 +234,114 @@ export default function App() {
     }
   }
 
+  async function startRide(rideId: string) {
+    if (!token) {
+      setMessage("Please login as a Partner first.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("Starting ride...");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/rides/${rideId}/start`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const payload = await response.json();
+
+      console.log("START RIDE RESPONSE:", payload);
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.message || "Unable to start ride.",
+        );
+      }
+
+      setMessage("🚗 Ride started!");
+
+      if (payload.data?.ride) {
+        setActiveRide(payload.data.ride);
+      }
+    } catch (error) {
+      console.error("START RIDE ERROR:", error);
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to start ride.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function completeRide(rideId: string) {
+    if (!token) {
+      setMessage("Please login as a Partner first.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("Completing ride...");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/rides/${rideId}/complete`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const payload = await response.json();
+
+      console.log("COMPLETE RIDE RESPONSE:", payload);
+
+      if (!response.ok || !payload.success) {
+        throw new Error(
+          payload.message || "Unable to complete ride.",
+        );
+      }
+
+      setMessage("🏁 Ride completed!");
+
+      if (payload.data?.ride) {
+        setActiveRide(payload.data.ride);
+      }
+    } catch (error) {
+      console.error("COMPLETE RIDE ERROR:", error);
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to complete ride.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function finishActiveRide() {
+    setActiveRide(null);
+    loadAvailableRides();
+  }
+
   function logout() {
     setToken("");
     setPartnerName("");
     setRides([]);
+    setActiveRide(null);
     setLoggedIn(false);
     setMessage("");
     setPhoneNumber("");
@@ -356,57 +465,23 @@ export default function App() {
           </View>
         ) : null}
 
-        <Pressable
-          style={styles.refreshButton}
-          onPress={() => loadAvailableRides()}
-          disabled={loading}
-        >
-          <Text style={styles.refreshText}>
-            {loading
-              ? "Loading..."
-              : "Refresh Ride Requests"}
-          </Text>
-        </Pressable>
-
-        {loading ? (
-          <ActivityIndicator
-            size="large"
-            style={styles.loader}
-          />
-        ) : null}
-
-        {!loading && rides.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>
-              No ride requests
-            </Text>
-
-            <Text style={styles.emptyText}>
-              New rider requests will appear here.
-            </Text>
-          </View>
-        ) : null}
-
-        {rides.map((ride) => (
-          <View
-            key={ride.id}
-            style={styles.rideCard}
-          >
+        {activeRide ? (
+          <View style={styles.rideCard}>
             <View style={styles.statusRow}>
               <Text style={styles.status}>
-                {ride.status}
+                {activeRide.status}
               </Text>
 
               <Text style={styles.time}>
                 {new Date(
-                  ride.requestedAt,
+                  activeRide.requestedAt,
                 ).toLocaleTimeString()}
               </Text>
             </View>
 
             <Text style={styles.passenger}>
               Passenger:{" "}
-              {ride.passenger?.fullName ?? "Passenger"}
+              {activeRide.passenger?.fullName ?? "Passenger"}
             </Text>
 
             <Text style={styles.locationLabel}>
@@ -414,7 +489,7 @@ export default function App() {
             </Text>
 
             <Text style={styles.location}>
-              {ride.pickupAddress}
+              {activeRide.pickupAddress}
             </Text>
 
             <Text style={styles.locationLabel}>
@@ -422,22 +497,140 @@ export default function App() {
             </Text>
 
             <Text style={styles.location}>
-              {ride.destinationAddress}
+              {activeRide.destinationAddress}
             </Text>
 
+            {activeRide.status === "ACCEPTED" ? (
+              <Pressable
+                style={styles.acceptButton}
+                onPress={() => startRide(activeRide.id)}
+                disabled={loading}
+              >
+                <Text style={styles.acceptText}>
+                  {loading
+                    ? "Please wait..."
+                    : "Start Ride"}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {activeRide.status === "STARTED" ? (
+              <Pressable
+                style={styles.acceptButton}
+                onPress={() => completeRide(activeRide.id)}
+                disabled={loading}
+              >
+                <Text style={styles.acceptText}>
+                  {loading
+                    ? "Please wait..."
+                    : "Complete Ride"}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {activeRide.status === "COMPLETED" ? (
+              <>
+                <Text style={styles.emptyTitle}>
+                  🏁 Ride Completed
+                </Text>
+
+                <Pressable
+                  style={styles.refreshButton}
+                  onPress={finishActiveRide}
+                >
+                  <Text style={styles.refreshText}>
+                    Back to Available Rides
+                  </Text>
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        ) : (
+          <>
             <Pressable
-              style={styles.acceptButton}
-              onPress={() => acceptRide(ride.id)}
+              style={styles.refreshButton}
+              onPress={() => loadAvailableRides()}
               disabled={loading}
             >
-              <Text style={styles.acceptText}>
+              <Text style={styles.refreshText}>
                 {loading
-                  ? "Please wait..."
-                  : "Accept Ride"}
+                  ? "Loading..."
+                  : "Refresh Ride Requests"}
               </Text>
             </Pressable>
-          </View>
-        ))}
+
+            {loading ? (
+              <ActivityIndicator
+                size="large"
+                style={styles.loader}
+              />
+            ) : null}
+
+            {!loading && rides.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>
+                  No ride requests
+                </Text>
+
+                <Text style={styles.emptyText}>
+                  New rider requests will appear here.
+                </Text>
+              </View>
+            ) : null}
+
+            {rides.map((ride) => (
+              <View
+                key={ride.id}
+                style={styles.rideCard}
+              >
+                <View style={styles.statusRow}>
+                  <Text style={styles.status}>
+                    {ride.status}
+                  </Text>
+
+                  <Text style={styles.time}>
+                    {new Date(
+                      ride.requestedAt,
+                    ).toLocaleTimeString()}
+                  </Text>
+                </View>
+
+                <Text style={styles.passenger}>
+                  Passenger:{" "}
+                  {ride.passenger?.fullName ?? "Passenger"}
+                </Text>
+
+                <Text style={styles.locationLabel}>
+                  PICKUP
+                </Text>
+
+                <Text style={styles.location}>
+                  {ride.pickupAddress}
+                </Text>
+
+                <Text style={styles.locationLabel}>
+                  DESTINATION
+                </Text>
+
+                <Text style={styles.location}>
+                  {ride.destinationAddress}
+                </Text>
+
+                <Pressable
+                  style={styles.acceptButton}
+                  onPress={() => acceptRide(ride.id)}
+                  disabled={loading}
+                >
+                  <Text style={styles.acceptText}>
+                    {loading
+                      ? "Please wait..."
+                      : "Accept Ride"}
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
