@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -7,13 +7,20 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { createRide } from "../api/ride";
+import { createRide, getRide } from "../api/ride";
+import type { Ride } from "../api/ride";
 import { useAuth } from "../context/AuthContext";
 import { colors, radius, spacing } from "../theme/colors";
 
 interface BookRideScreenProps {
   onBack: () => void;
 }
+
+// Statuses where the ride is still "in play" and worth polling for updates.
+const ACTIVE_STATUSES: Ride["status"][] = ["REQUESTED", "ACCEPTED", "STARTED"];
+
+// How often to check for a status change while there's no realtime channel yet.
+const POLL_INTERVAL_MS = 6000;
 
 export function BookRideScreen({ onBack }: BookRideScreenProps) {
   const { token } = useAuth();
@@ -22,15 +29,47 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
   const [destinationAddress, setDestinationAddress] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [successMessage, setSuccessMessage] = useState("");
+  const [ride, setRide] = useState<Ride | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Poll GET /api/rides/:id while the ride is active, so this screen picks up
+  // status changes (e.g. a partner accepting) without a manual refresh.
+  useEffect(() => {
+    function stopPolling() {
+      if (pollTimerRef.current !== null) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    }
+
+    if (!ride || !token || !ACTIVE_STATUSES.includes(ride.status)) {
+      stopPolling();
+      return;
+    }
+
+    stopPolling();
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const result = await getRide(ride.id, token);
+        setRide(result.ride);
+      } catch (error) {
+        // Transient network hiccups shouldn't kill the flow — just log and
+        // let the next interval try again.
+        console.error("RIDE STATUS POLL ERROR:", error);
+      }
+    }, POLL_INTERVAL_MS);
+
+    return stopPolling;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ride?.id, ride?.status, token]);
 
   async function handleBookRide() {
     if (loading) {
       return;
     }
 
-    setSuccessMessage("");
     setErrorMessage("");
 
     if (!pickupAddress.trim() || !destinationAddress.trim()) {
@@ -69,9 +108,7 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
         );
       }
 
-      setSuccessMessage(
-        `Ride requested successfully!\nRide ID: ${result.ride.id}\n\nLooking for a nearby driver...`,
-      );
+      setRide(result.ride);
 
       setPickupAddress("");
       setDestinationAddress("");
@@ -89,6 +126,11 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
     }
   }
 
+  function handleBackFromRide() {
+    setRide(null);
+    onBack();
+  }
+
   return (
     <View style={styles.container}>
       <Pressable
@@ -104,25 +146,8 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
         Where do you want to go?
       </Text>
 
-      {successMessage ? (
-        <View style={styles.successBox}>
-          <Text style={styles.successTitle}>
-            🚕 Ride Requested
-          </Text>
-
-          <Text style={styles.successText}>
-            {successMessage}
-          </Text>
-
-          <Pressable
-            style={styles.homeButton}
-            onPress={onBack}
-          >
-            <Text style={styles.buttonText}>
-              Back to Home
-            </Text>
-          </Pressable>
-        </View>
+      {ride ? (
+        <RideStatusCard ride={ride} onBack={handleBackFromRide} />
       ) : null}
 
       {errorMessage ? (
@@ -137,7 +162,7 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
         </View>
       ) : null}
 
-      {!successMessage ? (
+      {!ride ? (
         <>
           <Text style={styles.label}>
             Pickup location
@@ -183,6 +208,96 @@ export function BookRideScreen({ onBack }: BookRideScreenProps) {
       ) : null}
     </View>
   );
+}
+
+interface RideStatusCardProps {
+  ride: Ride;
+  onBack: () => void;
+}
+
+// Renders the right message/heading for whatever status the ride is
+// currently in, and re-renders automatically as `ride` updates from polling.
+function RideStatusCard({ ride, onBack }: RideStatusCardProps) {
+  const content = getRideStatusContent(ride);
+
+  return (
+    <View style={styles.successBox}>
+      <Text style={styles.successTitle}>
+        {content.emoji} {content.heading}
+      </Text>
+
+      <Text style={styles.successText}>
+        {content.body}
+      </Text>
+
+      {(ride.status === "COMPLETED" || ride.status === "CANCELLED") ? (
+        <Pressable
+          style={styles.homeButton}
+          onPress={onBack}
+        >
+          <Text style={styles.buttonText}>
+            Back to Home
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function getRideStatusContent(ride: Ride): {
+  emoji: string;
+  heading: string;
+  body: string;
+} {
+  switch (ride.status) {
+    case "REQUESTED":
+      return {
+        emoji: "🚕",
+        heading: "Ride Requested",
+        body: `Ride ID: ${ride.id}\n\nLooking for a nearby driver...`,
+      };
+
+    case "ACCEPTED":
+      return {
+        emoji: "✅",
+        heading: "Driver Assigned",
+        body: ride.rider
+          ? `${ride.rider.fullName} is on the way.\nContact: ${ride.rider.phoneNumber}`
+          : "A driver has accepted your ride.",
+      };
+
+    case "STARTED":
+      return {
+        emoji: "🚗",
+        heading: "Ride In Progress",
+        body: ride.rider
+          ? `Your ride with ${ride.rider.fullName} has started.`
+          : "Your ride has started.",
+      };
+
+    case "COMPLETED":
+      return {
+        emoji: "🏁",
+        heading: "Ride Completed",
+        body: "Thanks for riding with MF Rides!",
+      };
+
+    case "CANCELLED":
+      return {
+        emoji: "✕",
+        heading: "Ride Cancelled",
+        body: ride.cancellationReason
+          ? `Reason: ${ride.cancellationReason}`
+          : "This ride was cancelled.",
+      };
+
+    default:
+      return {
+        emoji: "🚕",
+        heading: "Ride Requested",
+        body: `Ride ID: ${ride.id}`,
+      };
+  }
 }
 
 const styles = StyleSheet.create({
