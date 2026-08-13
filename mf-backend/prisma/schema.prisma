@@ -29,8 +29,12 @@ model User {
   passwordHash String
   role         Role     @default(RIDER)
   isOnline     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  // MF Gold wallet
+  goldBalance Decimal @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   ridesAsPassenger Ride[] @relation("PassengerRides")
   ridesAsRider     Ride[] @relation("RiderRides")
@@ -48,13 +52,23 @@ model Ride {
   riderId String?
   rider   User?   @relation("RiderRides", fields: [riderId], references: [id])
 
-  pickupAddress     String
-  pickupLatitude    Float
-  pickupLongitude   Float
+  // Pickup location
+  pickupAddress   String
+  pickupLatitude  Float
+  pickupLongitude Float
 
+  // Destination location
   destinationAddress   String
   destinationLatitude  Float
   destinationLongitude Float
+
+  // Ride fare
+  fare Decimal @default(0) @db.Decimal(12, 2)
+
+  // Ride OTP
+  otpCode       String?
+  otpExpiresAt  DateTime?
+  otpVerifiedAt DateTime?
 
   requestedAt DateTime  @default(now())
   acceptedAt  DateTime?

@@ -4,6 +4,7 @@ import type {
   RideStatus,
   User,
 } from "../../../generated/prisma/client.js";
+
 import { AppError } from "../../utils/AppError.js";
 import type { CreateRideInput } from "./ride.schema.js";
 
@@ -35,24 +36,30 @@ const participantSelect = {
   role: true,
 } as const;
 
-export function createRideService(prisma: PrismaClient) {
+export function createRideService(
+  prisma: PrismaClient,
+) {
   async function getRideOrThrow(
     rideId: string,
   ): Promise<RideWithParticipants> {
-    const ride = await prisma.ride.findUnique({
-      where: { id: rideId },
-      include: {
-        passenger: {
-          select: participantSelect,
+    const ride =
+      await prisma.ride.findUnique({
+        where: { id: rideId },
+        include: {
+          passenger: {
+            select: participantSelect,
+          },
+          rider: {
+            select: participantSelect,
+          },
         },
-        rider: {
-          select: participantSelect,
-        },
-      },
-    });
+      });
 
     if (!ride) {
-      throw new AppError("Ride not found", 404);
+      throw new AppError(
+        "Ride not found",
+        404,
+      );
     }
 
     return ride as RideWithParticipants;
@@ -62,37 +69,39 @@ export function createRideService(prisma: PrismaClient) {
     // ============================================================
     // CREATE RIDE
     // ============================================================
+
     async createRide(
       passengerId: string,
       input: CreateRideInput,
     ): Promise<RideWithParticipants> {
       console.log("");
-      console.log("🔥 CREATE RIDE SERVICE HIT");
-      console.log("Passenger ID:", passengerId);
-      console.log("Ride input:", input);
+      console.log(
+        "🔥 CREATE RIDE SERVICE HIT",
+      );
+      console.log(
+        "Passenger ID:",
+        passengerId,
+      );
+      console.log(
+        "Ride input:",
+        input,
+      );
 
       // ----------------------------------------------------------
-      // 1. Check for existing active ride
+      // 1. Prevent multiple active rides
       // ----------------------------------------------------------
-      console.log("1️⃣ CHECKING ACTIVE RIDE");
 
-      const existingActiveRide = await prisma.ride.findFirst({
-        where: {
-          passengerId,
-          status: {
-            in: ACTIVE_STATUSES,
+      const existingActiveRide =
+        await prisma.ride.findFirst({
+          where: {
+            passengerId,
+            status: {
+              in: ACTIVE_STATUSES,
+            },
           },
-        },
-      });
-
-      console.log("2️⃣ ACTIVE RIDE CHECK COMPLETE");
+        });
 
       if (existingActiveRide) {
-        console.log(
-          "⚠️ ACTIVE RIDE ALREADY EXISTS:",
-          existingActiveRide.id,
-        );
-
         throw new AppError(
           "You already have an active ride request. Finish or cancel it before requesting another.",
           409,
@@ -100,48 +109,111 @@ export function createRideService(prisma: PrismaClient) {
       }
 
       // ----------------------------------------------------------
-      // 2. Create ride
+      // 2. Validate coordinates
       // ----------------------------------------------------------
-      console.log("3️⃣ CREATING RIDE IN DATABASE");
+
+      if (
+        !Number.isFinite(
+          input.pickupLatitude,
+        ) ||
+        !Number.isFinite(
+          input.pickupLongitude,
+        ) ||
+        !Number.isFinite(
+          input.destinationLatitude,
+        ) ||
+        !Number.isFinite(
+          input.destinationLongitude,
+        )
+      ) {
+        throw new AppError(
+          "Valid pickup and destination coordinates are required.",
+          400,
+        );
+      }
+
+      // ----------------------------------------------------------
+      // 3. Generate ONE OTP for this ride
+      //
+      // OTP is permanent for this ride.
+      // We DO NOT create an expiry time.
+      // ----------------------------------------------------------
+
+      const otpCode = generateOtp();
+
+      // ----------------------------------------------------------
+      // 4. Create ride
+      // ----------------------------------------------------------
 
       try {
-        const ride = await prisma.ride.create({
-          data: {
-            passengerId,
+        const ride =
+          await prisma.ride.create({
+            data: {
+              passengerId,
+              status: "REQUESTED",
 
-            status: "REQUESTED",
+              pickupAddress:
+                input.pickupAddress,
+              pickupLatitude:
+                input.pickupLatitude,
+              pickupLongitude:
+                input.pickupLongitude,
 
-            pickupAddress: input.pickupAddress,
-            pickupLatitude: input.pickupLatitude,
-            pickupLongitude: input.pickupLongitude,
+              destinationAddress:
+                input.destinationAddress,
+              destinationLatitude:
+                input.destinationLatitude,
+              destinationLongitude:
+                input.destinationLongitude,
 
-            destinationAddress: input.destinationAddress,
-            destinationLatitude: input.destinationLatitude,
-            destinationLongitude: input.destinationLongitude,
+              fare: 0,
 
-            requestedAt: new Date(),
-          },
+              // One permanent OTP for this ride.
+              otpCode,
 
-          include: {
-            passenger: {
-              select: participantSelect,
+              // Do not use expiry anymore.
+              otpExpiresAt: null,
+
+              otpVerifiedAt: null,
+
+              requestedAt:
+                new Date(),
             },
-            rider: {
-              select: participantSelect,
-            },
-          },
-        });
 
-        console.log("4️⃣ RIDE CREATED SUCCESSFULLY");
-        console.log("Ride ID:", ride.id);
-        console.log("Ride Status:", ride.status);
+            include: {
+              passenger: {
+                select:
+                  participantSelect,
+              },
+
+              rider: {
+                select:
+                  participantSelect,
+              },
+            },
+          });
+
+        console.log(
+          "✅ RIDE CREATED",
+        );
+
+        console.log(
+          "Ride ID:",
+          ride.id,
+        );
+
+        console.log(
+          "Permanent OTP:",
+          ride.otpCode,
+        );
 
         return ride as RideWithParticipants;
       } catch (error) {
-        console.error("");
-        console.error("❌ CREATE RIDE DATABASE ERROR");
+        console.error(
+          "❌ CREATE RIDE DATABASE ERROR",
+        );
+
         console.error(error);
-        console.error("");
 
         throw new AppError(
           "Unable to create ride. Please try again.",
@@ -153,6 +225,7 @@ export function createRideService(prisma: PrismaClient) {
     // ============================================================
     // LIST AVAILABLE RIDES
     // ============================================================
+
     async listAvailableRides(
       limit = 50,
     ): Promise<RideWithParticipants[]> {
@@ -161,36 +234,47 @@ export function createRideService(prisma: PrismaClient) {
           status: "REQUESTED",
           riderId: null,
         },
+
         orderBy: {
           requestedAt: "asc",
         },
+
         take: limit,
+
         include: {
           passenger: {
             select: participantSelect,
           },
+
           rider: {
             select: participantSelect,
           },
         },
-      }) as Promise<RideWithParticipants[]>;
+      }) as Promise<
+        RideWithParticipants[]
+      >;
     },
 
     // ============================================================
     // ACCEPT RIDE
     // ============================================================
+
     async acceptRide(
       rideId: string,
       riderId: string,
     ): Promise<RideWithParticipants> {
-      const rider = await prisma.user.findUnique({
-        where: {
-          id: riderId,
-        },
-      });
+      const rider =
+        await prisma.user.findUnique({
+          where: {
+            id: riderId,
+          },
+        });
 
       if (!rider) {
-        throw new AppError("User not found", 404);
+        throw new AppError(
+          "User not found",
+          404,
+        );
       }
 
       if (rider.role !== "PARTNER") {
@@ -207,28 +291,34 @@ export function createRideService(prisma: PrismaClient) {
         );
       }
 
-      const claim = await prisma.ride.updateMany({
-        where: {
-          id: rideId,
-          status: "REQUESTED",
-          riderId: null,
-        },
-        data: {
-          riderId,
-          status: "ACCEPTED",
-          acceptedAt: new Date(),
-        },
-      });
-
-      if (claim.count === 0) {
-        const ride = await prisma.ride.findUnique({
+      const claim =
+        await prisma.ride.updateMany({
           where: {
             id: rideId,
+            status: "REQUESTED",
+            riderId: null,
+          },
+
+          data: {
+            riderId,
+            status: "ACCEPTED",
+            acceptedAt: new Date(),
           },
         });
 
+      if (claim.count === 0) {
+        const ride =
+          await prisma.ride.findUnique({
+            where: {
+              id: rideId,
+            },
+          });
+
         if (!ride) {
-          throw new AppError("Ride not found", 404);
+          throw new AppError(
+            "Ride not found",
+            404,
+          );
         }
 
         throw new AppError(
@@ -237,38 +327,110 @@ export function createRideService(prisma: PrismaClient) {
         );
       }
 
-      return getRideOrThrow(rideId);
+      return getRideOrThrow(
+        rideId,
+      );
     },
 
     // ============================================================
-    // START RIDE
+    // START RIDE — OTP REQUIRED
     // ============================================================
+
     async startRide(
       rideId: string,
       riderId: string,
+      enteredOtp: string,
     ): Promise<RideWithParticipants> {
-      const ride = await getRideOrThrow(rideId);
+      const ride =
+        await getRideOrThrow(
+          rideId,
+        );
 
-      assertIsAssignedRider(ride, riderId);
-      assertStatus(ride, "ACCEPTED", "start");
+      assertIsAssignedRider(
+        ride,
+        riderId,
+      );
 
-      const updatedRide = await prisma.ride.update({
-        where: {
-          id: rideId,
-        },
-        data: {
-          status: "STARTED",
-          startedAt: new Date(),
-        },
-        include: {
-          passenger: {
-            select: participantSelect,
+      assertStatus(
+        ride,
+        "ACCEPTED",
+        "start",
+      );
+
+      // ----------------------------------------------------------
+      // 1. OTP must exist
+      // ----------------------------------------------------------
+
+      if (!ride.otpCode) {
+        throw new AppError(
+          "Ride OTP is not available.",
+          400,
+        );
+      }
+
+      // ----------------------------------------------------------
+      // 2. Validate 4-digit OTP format
+      // ----------------------------------------------------------
+
+      if (
+        !enteredOtp ||
+        !/^\d{4}$/.test(
+          enteredOtp,
+        )
+      ) {
+        throw new AppError(
+          "Please enter the valid 4-digit ride OTP.",
+          400,
+        );
+      }
+
+      // ----------------------------------------------------------
+      // 3. NO EXPIRY CHECK
+      //
+      // The OTP belongs permanently to this ride.
+      // ----------------------------------------------------------
+
+      // ----------------------------------------------------------
+      // 4. Verify OTP
+      // ----------------------------------------------------------
+
+      if (
+        enteredOtp !==
+        ride.otpCode
+      ) {
+        throw new AppError(
+          "Incorrect ride OTP.",
+          400,
+        );
+      }
+
+      // ----------------------------------------------------------
+      // 5. Correct OTP → START RIDE
+      // ----------------------------------------------------------
+
+      const updatedRide =
+        await prisma.ride.update({
+          where: {
+            id: rideId,
           },
-          rider: {
-            select: participantSelect,
+
+          data: {
+            status: "STARTED",
+            startedAt: new Date(),
+            otpVerifiedAt:
+              new Date(),
           },
-        },
-      });
+
+          include: {
+            passenger: {
+              select: participantSelect,
+            },
+
+            rider: {
+              select: participantSelect,
+            },
+          },
+        });
 
       return updatedRide as RideWithParticipants;
     },
@@ -276,32 +438,49 @@ export function createRideService(prisma: PrismaClient) {
     // ============================================================
     // COMPLETE RIDE
     // ============================================================
+
     async completeRide(
       rideId: string,
       riderId: string,
     ): Promise<RideWithParticipants> {
-      const ride = await getRideOrThrow(rideId);
+      const ride =
+        await getRideOrThrow(
+          rideId,
+        );
 
-      assertIsAssignedRider(ride, riderId);
-      assertStatus(ride, "STARTED", "complete");
+      assertIsAssignedRider(
+        ride,
+        riderId,
+      );
 
-      const updatedRide = await prisma.ride.update({
-        where: {
-          id: rideId,
-        },
-        data: {
-          status: "COMPLETED",
-          completedAt: new Date(),
-        },
-        include: {
-          passenger: {
-            select: participantSelect,
+      assertStatus(
+        ride,
+        "STARTED",
+        "complete",
+      );
+
+      const updatedRide =
+        await prisma.ride.update({
+          where: {
+            id: rideId,
           },
-          rider: {
-            select: participantSelect,
+
+          data: {
+            status: "COMPLETED",
+            completedAt:
+              new Date(),
           },
-        },
-      });
+
+          include: {
+            passenger: {
+              select: participantSelect,
+            },
+
+            rider: {
+              select: participantSelect,
+            },
+          },
+        });
 
       return updatedRide as RideWithParticipants;
     },
@@ -309,27 +488,43 @@ export function createRideService(prisma: PrismaClient) {
     // ============================================================
     // CANCEL RIDE
     // ============================================================
+
     async cancelRide(
       rideId: string,
       userId: string,
       reason?: string,
     ): Promise<RideWithParticipants> {
-      const ride = await getRideOrThrow(rideId);
+      const ride =
+        await getRideOrThrow(
+          rideId,
+        );
 
-      const isPassenger = ride.passengerId === userId;
-      const isAssignedRider = ride.riderId === userId;
+      const isPassenger =
+        ride.passengerId === userId;
 
-      if (!isPassenger && !isAssignedRider) {
+      const isAssignedRider =
+        ride.riderId === userId;
+
+      if (
+        !isPassenger &&
+        !isAssignedRider
+      ) {
         throw new AppError(
           "You are not part of this ride",
           403,
         );
       }
 
-      if (!CANCELLABLE_STATUSES.includes(ride.status)) {
+      // Only REQUESTED / ACCEPTED can be cancelled.
+      if (
+        !CANCELLABLE_STATUSES.includes(
+          ride.status,
+        )
+      ) {
         throw new AppError(
           `A ride can no longer be cancelled once it has ${
-            ride.status === "STARTED"
+            ride.status ===
+            "STARTED"
               ? "started"
               : "ended"
           }`,
@@ -337,25 +532,33 @@ export function createRideService(prisma: PrismaClient) {
         );
       }
 
-      const updatedRide = await prisma.ride.update({
-        where: {
-          id: rideId,
-        },
-        data: {
-          status: "CANCELLED",
-          cancelledAt: new Date(),
-          cancelledBy: userId,
-          cancellationReason: reason,
-        },
-        include: {
-          passenger: {
-            select: participantSelect,
+      const updatedRide =
+        await prisma.ride.update({
+          where: {
+            id: rideId,
           },
-          rider: {
-            select: participantSelect,
+
+          data: {
+            status: "CANCELLED",
+            cancelledAt:
+              new Date(),
+            cancelledBy:
+              userId,
+            cancellationReason:
+              reason ??
+              "Cancelled",
           },
-        },
-      });
+
+          include: {
+            passenger: {
+              select: participantSelect,
+            },
+
+            rider: {
+              select: participantSelect,
+            },
+          },
+        });
 
       return updatedRide as RideWithParticipants;
     },
@@ -363,15 +566,21 @@ export function createRideService(prisma: PrismaClient) {
     // ============================================================
     // GET SINGLE RIDE
     // ============================================================
+
     async getRideForParticipant(
       rideId: string,
       userId: string,
     ): Promise<RideWithParticipants> {
-      const ride = await getRideOrThrow(rideId);
+      const ride =
+        await getRideOrThrow(
+          rideId,
+        );
 
       if (
-        ride.passengerId !== userId &&
-        ride.riderId !== userId
+        ride.passengerId !==
+          userId &&
+        ride.riderId !==
+          userId
       ) {
         throw new AppError(
           "You are not part of this ride",
@@ -385,6 +594,7 @@ export function createRideService(prisma: PrismaClient) {
     // ============================================================
     // MY RIDES
     // ============================================================
+
     async listMyRides(
       userId: string,
     ): Promise<RideWithParticipants[]> {
@@ -399,29 +609,48 @@ export function createRideService(prisma: PrismaClient) {
             },
           ],
         },
+
         orderBy: {
           createdAt: "desc",
         },
+
         include: {
           passenger: {
             select: participantSelect,
           },
+
           rider: {
             select: participantSelect,
           },
         },
-      }) as Promise<RideWithParticipants[]>;
+      }) as Promise<
+        RideWithParticipants[]
+      >;
     },
 
     getRideOrThrow,
   };
 }
 
+// ============================================================
+// HELPERS
+// ============================================================
+
+function generateOtp(): string {
+  return Math.floor(
+    1000 +
+      Math.random() * 9000,
+  ).toString();
+}
+
 function assertIsAssignedRider(
   ride: Ride,
   riderId: string,
 ) {
-  if (ride.riderId !== riderId) {
+  if (
+    ride.riderId !==
+    riderId
+  ) {
     throw new AppError(
       "You are not the assigned rider for this ride",
       403,
@@ -434,7 +663,10 @@ function assertStatus(
   expected: RideStatus,
   action: string,
 ) {
-  if (ride.status !== expected) {
+  if (
+    ride.status !==
+    expected
+  ) {
     throw new AppError(
       `Cannot ${action} a ride that is currently ${ride.status}`,
       409,
@@ -442,6 +674,7 @@ function assertStatus(
   }
 }
 
-export type RideService = ReturnType<
-  typeof createRideService
->;
+export type RideService =
+  ReturnType<
+    typeof createRideService
+  >;

@@ -1,5 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import * as Location from "expo-location";
+
 import { useAuth } from "../context/AuthContext";
 import { colors, radius, spacing } from "../theme/colors";
 
@@ -9,10 +18,55 @@ interface HomeScreenProps {
 
 export function HomeScreen({ onBookRide }: HomeScreenProps) {
   const { user, logout } = useAuth();
-  const [isOnline, setIsOnline] = useState(false);
 
-  const handleOnlineToggle = () => {
-    setIsOnline((prev) => !prev);
+  const [location, setLocation] =
+    useState<Location.LocationObject | null>(null);
+
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    detectCurrentLocation();
+  }, []);
+
+  const detectCurrentLocation = async () => {
+    try {
+      setLocationLoading(true);
+      setLocationError(null);
+
+      const { status } =
+        await Location.requestForegroundPermissionsAsync();
+
+      if (status !== Location.PermissionStatus.GRANTED) {
+        setLocationError("Location permission denied");
+        setLocationLoading(false);
+        return;
+      }
+
+      const currentLocation =
+        await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+      setLocation(currentLocation);
+    } catch (error) {
+      console.error("Location error:", error);
+      setLocationError("Unable to detect your location");
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleBookRide = () => {
+    if (!location) {
+      Alert.alert(
+        "Location Required",
+        "Please allow location access before booking a ride."
+      );
+      return;
+    }
+
+    onBookRide();
   };
 
   return (
@@ -26,45 +80,18 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
           You're signed in to MF Rides.
         </Text>
 
-        {/* ONLINE / OFFLINE */}
-        <View style={styles.onlineCard}>
-          <View>
-            <Text style={styles.onlineTitle}>
-              Rider Status
-            </Text>
-
-            <Text
-              style={[
-                styles.onlineStatus,
-                isOnline ? styles.online : styles.offline,
-              ]}
-            >
-              {isOnline ? "🟢 ONLINE" : "⚫ OFFLINE"}
-            </Text>
-          </View>
-
-          <Pressable
-            style={[
-              styles.onlineButton,
-              isOnline
-                ? styles.goOfflineButton
-                : styles.goOnlineButton,
-            ]}
-            onPress={handleOnlineToggle}
-          >
-            <Text style={styles.onlineButtonText}>
-              {isOnline ? "Go Offline" : "Go Online"}
-            </Text>
-          </Pressable>
-        </View>
+        {/* RIDER ACCOUNT INFO */}
 
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Phone number</Text>
+          <Text style={styles.cardLabel}>
+            Phone number
+          </Text>
+
           <Text style={styles.cardValue}>
             {user?.phoneNumber}
           </Text>
 
-          {user?.email && (
+          {user?.email ? (
             <>
               <Text
                 style={[
@@ -79,7 +106,7 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
                 {user.email}
               </Text>
             </>
-          )}
+          ) : null}
 
           <Text
             style={[
@@ -87,35 +114,107 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
               styles.cardLabelSpaced,
             ]}
           >
-            Role
+            Account type
           </Text>
 
           <Text style={styles.cardValue}>
-            {user?.role}
+            Rider
           </Text>
         </View>
 
+        {/* LOCATION */}
+
+        <View style={styles.locationCard}>
+          <Text style={styles.locationEmoji}>
+            📍
+          </Text>
+
+          <View style={styles.locationTextBox}>
+            <Text style={styles.locationTitle}>
+              Current Location
+            </Text>
+
+            {locationLoading ? (
+              <View style={styles.locationLoadingRow}>
+                <ActivityIndicator
+                  size="small"
+                  color={colors.accent}
+                />
+
+                <Text style={styles.locationSubtitle}>
+                  Detecting your location...
+                </Text>
+              </View>
+            ) : location ? (
+              <>
+                <Text style={styles.locationSuccess}>
+                  Location detected successfully ✅
+                </Text>
+
+                <Text style={styles.coordinates}>
+                  Latitude: {location.coords.latitude.toFixed(6)}
+                </Text>
+
+                <Text style={styles.coordinates}>
+                  Longitude: {location.coords.longitude.toFixed(6)}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.locationError}>
+                  {locationError ?? "Location not available"}
+                </Text>
+
+                <Pressable
+                  style={styles.retryButton}
+                  onPress={detectCurrentLocation}
+                >
+                  <Text style={styles.retryButtonText}>
+                    Try Again
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* BOOK RIDE */}
+
         <Pressable
-          style={styles.bookButton}
-          onPress={onBookRide}
+          style={[
+            styles.bookButton,
+            !location && styles.bookButtonDisabled,
+          ]}
+          onPress={handleBookRide}
+          disabled={!location}
         >
           <Text style={styles.bookButtonText}>
-            Book a Ride 🚕
+            {location ? "Book a Ride 🚕" : "Detecting Location..."}
           </Text>
         </Pressable>
 
-        {isOnline && (
-          <View style={styles.requestCard}>
-            <Text style={styles.requestTitle}>
-              🚕 Looking for ride requests...
-            </Text>
+        {/* SERVICE INFO */}
 
-            <Text style={styles.requestSubtitle}>
-              New passenger requests will appear here.
-            </Text>
-          </View>
-        )}
+        <View style={styles.serviceCard}>
+          <Text style={styles.serviceTitle}>
+            MF Rides Service Area
+          </Text>
+
+          <Text style={styles.serviceText}>
+            📍 Nearby trips only
+          </Text>
+
+          <Text style={styles.serviceText}>
+            📏 Maximum trip distance: 30 km
+          </Text>
+
+          <Text style={styles.serviceText}>
+            🚕 Nearby partners only
+          </Text>
+        </View>
       </View>
+
+      {/* LOGOUT */}
 
       <Pressable
         style={styles.logoutButton}
@@ -152,60 +251,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 
-  onlineCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.lg,
-  },
-
-  onlineTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-
-  onlineStatus: {
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: spacing.xs,
-  },
-
-  online: {
-    color: "#16a34a",
-  },
-
-  offline: {
-    color: colors.textMuted,
-  },
-
-  onlineButton: {
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-
-  goOnlineButton: {
-    backgroundColor: "#16a34a",
-  },
-
-  goOfflineButton: {
-    backgroundColor: "#555",
-  },
-
-  onlineButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -233,6 +278,80 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 
+  locationCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  locationEmoji: {
+    fontSize: 28,
+    marginRight: spacing.md,
+  },
+
+  locationTextBox: {
+    flex: 1,
+  },
+
+  locationTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
+
+  locationSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+    lineHeight: 18,
+  },
+
+  locationLoadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.xs,
+    gap: 8,
+  },
+
+  locationSuccess: {
+    fontSize: 13,
+    color: "#15803d",
+    marginTop: spacing.xs,
+    fontWeight: "600",
+  },
+
+  locationError: {
+    fontSize: 13,
+    color: "#dc2626",
+    marginTop: spacing.xs,
+  },
+
+  coordinates: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 3,
+  },
+
+  retryButton: {
+    alignSelf: "flex-start",
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent,
+  },
+
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
   bookButton: {
     backgroundColor: colors.accent,
     borderRadius: radius.md,
@@ -241,28 +360,33 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
 
+  bookButtonDisabled: {
+    opacity: 0.6,
+  },
+
   bookButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
   },
 
-  requestCard: {
+  serviceCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "#16a34a",
+    borderColor: colors.border,
     padding: spacing.lg,
     marginTop: spacing.lg,
   },
 
-  requestTitle: {
+  serviceTitle: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.text,
+    marginBottom: spacing.sm,
   },
 
-  requestSubtitle: {
+  serviceText: {
     fontSize: 13,
     color: colors.textMuted,
     marginTop: spacing.xs,

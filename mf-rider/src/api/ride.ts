@@ -33,6 +33,11 @@ export interface Ride {
   acceptedAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
+
+  otpCode: string | null;
+  otpExpiresAt: string | null;
+  otpVerifiedAt: string | null;
+  
   cancelledAt: string | null;
 
   cancelledBy: string | null;
