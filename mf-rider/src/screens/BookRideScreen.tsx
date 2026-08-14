@@ -151,7 +151,7 @@ export function BookRideScreen({
           "Content-Type": "application/json",
           "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
           "X-Goog-FieldMask":
-            "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat",
+            "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat",
         },
         body: JSON.stringify({
           input: trimmed,
@@ -283,88 +283,35 @@ export function BookRideScreen({
   // ============================================================
 
   async function geocodeAddress(
-    input: string,
-  ): Promise<SelectedPlace> {
-    if (!GOOGLE_MAPS_API_KEY) {
-      throw new Error(
-        "Google Maps API key is missing. Create .env in mf-rider and add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.",
-      );
-    }
+  input: string,
+): Promise<SelectedPlace> {
+  const trimmed = input.trim();
 
-    const trimmed = input.trim();
-
-    if (!trimmed) {
-      throw new Error("Please enter a destination.");
-    }
-
-    const url =
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-        trimmed,
-      )}&key=${encodeURIComponent(
-        GOOGLE_MAPS_API_KEY,
-      )}&region=in&language=en`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    console.log(
-      "📍 GEOCODING STATUS:",
-      response.status,
-      data?.status,
+  if (!trimmed) {
+    throw new Error(
+      "Please enter a location.",
     );
-
-    if (!response.ok || data?.status !== "OK") {
-      console.error(
-        "❌ GEOCODING ERROR:",
-        data,
-      );
-
-      if (
-        data?.status === "REQUEST_DENIED"
-      ) {
-        throw new Error(
-          "Google Geocoding API request was denied. Check billing, API key restrictions, and Geocoding API.",
-        );
-      }
-
-      if (
-        data?.status === "ZERO_RESULTS"
-      ) {
-        throw new Error(
-          `Location "${trimmed}" could not be found. Please enter a more specific place.`,
-        );
-      }
-
-      throw new Error(
-        data?.error_message ||
-          "Unable to find this location.",
-      );
-    }
-
-    const result = data?.results?.[0];
-
-    const latitude =
-      result?.geometry?.location?.lat;
-    const longitude =
-      result?.geometry?.location?.lng;
-
-    if (
-      typeof latitude !== "number" ||
-      typeof longitude !== "number"
-    ) {
-      throw new Error(
-        "Google could not return valid coordinates for this location.",
-      );
-    }
-
-    return {
-      address:
-        result?.formatted_address ||
-        trimmed,
-      latitude,
-      longitude,
-    };
   }
+
+  const suggestions =
+    await searchGooglePlaces(trimmed);
+
+  if (
+    !suggestions ||
+    suggestions.length === 0
+  ) {
+    throw new Error(
+      `Location "${trimmed}" could not be found. Please select a valid location.`,
+    );
+  }
+
+  const firstSuggestion =
+    suggestions[0];
+
+  return await getGooglePlaceDetails(
+    firstSuggestion.placeId,
+  );
+}
 
   // ============================================================
   // SEARCH PICKUP
@@ -686,8 +633,6 @@ export function BookRideScreen({
   // ============================================================
 
   useEffect(() => {
-    detectCurrentLocation();
-
     return () => {
       if (
         pickupSearchTimerRef.current !== null
@@ -843,16 +788,6 @@ async function restoreActiveRide() {
       return;
     }
 
-    if (
-      pickupLatitude === null ||
-      pickupLongitude === null
-    ) {
-      setErrorMessage(
-        "Please select your pickup location using the 📍 button.",
-      );
-      return;
-    }
-
     if (!destinationAddress.trim()) {
       setErrorMessage(
         "Please enter a destination.",
@@ -882,8 +817,29 @@ async function restoreActiveRide() {
     setLoading(true);
 
     try {
-      // If the rider typed a destination but did not
-      // tap a Google suggestion, resolve it automatically.
+  // 👇 NEW PICKUP CODE
+      let finalPickupAddress = pickupAddress.trim();
+      let finalPickupLatitude = pickupLatitude;
+      let finalPickupLongitude = pickupLongitude;
+
+      if (
+        finalPickupLatitude === null ||
+        finalPickupLongitude === null
+      ) {
+        const pickupPlace = await geocodeAddress(
+          finalPickupAddress,
+        );
+
+        finalPickupAddress = pickupPlace.address;
+        finalPickupLatitude = pickupPlace.latitude;
+        finalPickupLongitude = pickupPlace.longitude;
+
+        setPickupAddress(pickupPlace.address);
+        setPickupLatitude(pickupPlace.latitude);
+        setPickupLongitude(pickupPlace.longitude);
+      }
+
+  // 👇 EXISTING DESTINATION CODE
       let finalDestinationAddress =
         destinationAddress.trim();
 
@@ -893,6 +849,7 @@ async function restoreActiveRide() {
       let finalDestinationLongitude =
         destinationLongitude;
 
+  
       if (
         finalDestinationLatitude === null ||
         finalDestinationLongitude === null
@@ -914,51 +871,59 @@ async function restoreActiveRide() {
         setDestinationAddress(
           place.address,
         );
+
         setDestinationLatitude(
           place.latitude,
         );
+
         setDestinationLongitude(
           place.longitude,
         );
       }
+      
+      console.log("🚕 CREATING RIDE");
 
-      console.log(
-        "🚕 CREATING RIDE",
-      );
-
-      console.log({
-        pickupAddress,
-        pickupLatitude,
-        pickupLongitude,
-        destinationAddress:
-          finalDestinationAddress,
-        destinationLatitude:
-          finalDestinationLatitude,
-        destinationLongitude:
-          finalDestinationLongitude,
-      });
-
-      const result =
-        await createRide(
-          {
-            pickupAddress:
-              pickupAddress.trim(),
-
-            pickupLatitude,
-
-            pickupLongitude,
-
-            destinationAddress:
-              finalDestinationAddress,
-
-            destinationLatitude:
-              finalDestinationLatitude,
-
-            destinationLongitude:
-              finalDestinationLongitude,
-          },
-          token,
+      if (
+        finalPickupLatitude === null ||
+        finalPickupLongitude === null
+      ) {
+        throw new Error(
+          "Unable to get pickup location coordinates.",
         );
+      }
+
+      if (
+        finalDestinationLatitude === null ||
+        finalDestinationLongitude === null
+      ) {
+        throw new Error(
+          "Unable to get destination coordinates.",
+        );
+      }
+
+        const result =
+  await createRide(
+    {
+      pickupAddress:
+        finalPickupAddress,
+
+      pickupLatitude:
+        finalPickupLatitude,
+
+      pickupLongitude:
+        finalPickupLongitude,
+
+      destinationAddress:
+        finalDestinationAddress,
+
+      destinationLatitude:
+        finalDestinationLatitude,
+
+      destinationLongitude:
+        finalDestinationLongitude,
+    },
+    token,
+  );
 
       console.log(
         "✅ CREATE RIDE RESULT:",
@@ -1393,29 +1358,25 @@ async function restoreActiveRide() {
 
           <Pressable
             style={[
-              styles.button,
-              (loading ||
-                pickupLatitude ===
-                  null ||
-                pickupLongitude ===
-                  null ||
-                !destinationAddress.trim()) &&
-                styles.buttonDisabled,
-            ]}
-            onPress={handleBookRide}
-            disabled={
-              loading ||
-              pickupLatitude === null ||
-              pickupLongitude === null ||
-              !destinationAddress.trim()
-            }
-          >
-            <Text style={styles.buttonText}>
-              {loading
-                ? "Requesting Ride..."
-                : "Confirm Ride"}
-            </Text>
-          </Pressable>
+            styles.button,
+            (loading ||
+              !pickupAddress.trim() ||
+              !destinationAddress.trim()) &&
+              styles.buttonDisabled,
+           ]}
+             onPress={handleBookRide}
+             disabled={
+               loading ||
+               !pickupAddress.trim() ||
+               !destinationAddress.trim()
+             }
+>
+           <Text style={styles.buttonText}>
+             {loading
+             ? "Requesting Ride..."
+             : "Confirm Ride"}
+           </Text>
+         </Pressable>
         </>
       ) : null}
     </View>
@@ -1800,10 +1761,12 @@ const styles = StyleSheet.create({
   },
 
   locationInput: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    fontSize: 16,
-    color: colors.text,
+  flex: 1,
+  paddingVertical: spacing.md,
+  fontSize: 16,
+  color: colors.text,
+  outlineStyle: "solid",
+  outlineWidth: 0,
   },
 
   locationButton: {

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -58,14 +57,6 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
   };
 
   const handleBookRide = () => {
-    if (!location) {
-      Alert.alert(
-        "Location Required",
-        "Please allow location access before booking a ride."
-      );
-      return;
-    }
-
     onBookRide();
   };
 
@@ -181,15 +172,11 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
         {/* BOOK RIDE */}
 
         <Pressable
-          style={[
-            styles.bookButton,
-            !location && styles.bookButtonDisabled,
-          ]}
+          style={styles.bookButton}
           onPress={handleBookRide}
-          disabled={!location}
-        >
+>
           <Text style={styles.bookButtonText}>
-            {location ? "Book a Ride 🚕" : "Detecting Location..."}
+           Book a Ride 🚕
           </Text>
         </Pressable>
 
