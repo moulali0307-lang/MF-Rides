@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
+import type MapView from "react-native-maps";
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +11,8 @@ import {
   TextInput,
   View,
 } from "react-native";
+
+import { RideMap } from "../components/RideMap";
 
 import {
   cancelRide,
@@ -52,6 +55,7 @@ interface SelectedPlace {
 export function BookRideScreen({
   onBack,
 }: BookRideScreenProps) {
+  const mapRef = useRef<MapView | null>(null);
   const { token } = useAuth();
 
   // ============================================================
@@ -91,6 +95,8 @@ export function BookRideScreen({
 
   const [locationError, setLocationError] =
     useState("");
+
+  
 
   const pickupSearchTimerRef =
     useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -285,32 +291,100 @@ export function BookRideScreen({
   async function geocodeAddress(
   input: string,
 ): Promise<SelectedPlace> {
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    throw new Error(
+      "Google Maps API key is missing.",
+    );
+  }
+
   const trimmed = input.trim();
 
   if (!trimmed) {
     throw new Error(
-      "Please enter a location.",
+      "Please enter a destination.",
     );
   }
 
-  const suggestions =
-    await searchGooglePlaces(trimmed);
+  const url =
+    `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      trimmed,
+    )}&key=${encodeURIComponent(
+      GOOGLE_MAPS_API_KEY,
+    )}&region=in&language=en`;
+
+  const response =
+    await fetch(url);
+
+  const data =
+    await response.json();
+
+  console.log(
+    "📍 GEOCODING STATUS:",
+    response.status,
+    data?.status,
+  );
 
   if (
-    !suggestions ||
-    suggestions.length === 0
+    !response.ok ||
+    data?.status !== "OK"
   ) {
+
+    console.error(
+      "❌ GEOCODING ERROR:",
+      data,
+    );
+
+    if (
+      data?.status === "REQUEST_DENIED"
+    ) {
+      throw new Error(
+        data?.error_message ||
+          "Google Geocoding API request was denied.",
+      );
+    }
+
+    if (
+      data?.status === "ZERO_RESULTS"
+    ) {
+      throw new Error(
+        `Location "${trimmed}" could not be found. Please enter a more specific place.`,
+      );
+    }
+
     throw new Error(
-      `Location "${trimmed}" could not be found. Please select a valid location.`,
+      data?.error_message ||
+        "Unable to find this location.",
     );
   }
 
-  const firstSuggestion =
-    suggestions[0];
+  const result =
+    data?.results?.[0];
 
-  return await getGooglePlaceDetails(
-    firstSuggestion.placeId,
-  );
+  const latitude =
+    result?.geometry?.location?.lat;
+
+  const longitude =
+    result?.geometry?.location?.lng;
+
+  if (
+    typeof latitude !== "number" ||
+    typeof longitude !== "number"
+  ) {
+    throw new Error(
+      "Google could not return valid coordinates for this location.",
+    );
+  }
+
+  return {
+    address:
+      result?.formatted_address ||
+      trimmed,
+
+    latitude,
+
+    longitude,
+  };
 }
 
   // ============================================================
@@ -488,146 +562,139 @@ export function BookRideScreen({
   }
 
   // ============================================================
-  // CURRENT DEVICE LOCATION
-  // ============================================================
+// CURRENT DEVICE LOCATION
+// ============================================================
 
-  async function detectCurrentLocation() {
+async function detectCurrentLocation() {
+  try {
+    setLocationLoading(true);
+    setLocationError("");
+    setPickupSuggestions([]);
+
+    const permission =
+      await Location.requestForegroundPermissionsAsync();
+
+    if (
+      permission.status !==
+      Location.PermissionStatus.GRANTED
+    ) {
+      setLocationError(
+        "Location permission is required.",
+      );
+      return;
+    }
+
+    const current =
+      await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+    const latitude = current.coords.latitude;
+    const longitude = current.coords.longitude;
+
+    setPickupLatitude(latitude);
+    setPickupLongitude(longitude);
+
+    // Reverse geocoding via Expo's native/OS geocoder.
+    // (Legacy Google Geocoding API removed — the key is
+    // restricted to "Places API (New)" only, so calls to
+    // maps.googleapis.com/maps/api/geocode always fail.)
     try {
-      setLocationLoading(true);
-      setLocationError("");
-      setPickupSuggestions([]);
-
-      const permission =
-        await Location.requestForegroundPermissionsAsync();
-
-      if (
-        permission.status !==
-        Location.PermissionStatus.GRANTED
-      ) {
-        setLocationError(
-          "Location permission is required.",
-        );
-        return;
-      }
-
-      const current =
-        await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+      const addresses =
+        await Location.reverseGeocodeAsync({
+          latitude,
+          longitude,
         });
 
-      const latitude =
-        current.coords.latitude;
+      if (addresses.length > 0) {
+        const address = addresses[0];
 
-      const longitude =
-        current.coords.longitude;
+        const parts = [
+          address.name,
+          address.street,
+          address.district,
+          address.city,
+          address.region,
+        ].filter(Boolean);
 
-      setPickupLatitude(latitude);
-      setPickupLongitude(longitude);
-
-      // First try Google reverse geocoding so the rider
-      // sees a real area/place name instead of coordinates.
-      try {
-        const url =
-          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${encodeURIComponent(
-            GOOGLE_MAPS_API_KEY || "",
-          )}&language=en&region=in`;
-
-        if (!GOOGLE_MAPS_API_KEY) {
-          throw new Error("Missing Google Maps API key");
-        }
-
-        const response = await fetch(url);
-        const data = await response.json();
-
-        console.log(
-          "📍 REVERSE GEOCODING:",
-          response.status,
-          data?.status,
+        setPickupAddress(
+          parts.length > 0
+            ? parts.join(", ")
+            : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
         );
-
-        if (
-          response.ok &&
-          data?.status === "OK" &&
-          data?.results?.[0]?.formatted_address
-        ) {
-          setPickupAddress(
-            data.results[0].formatted_address,
-          );
-        } else {
-          throw new Error(
-            data?.error_message ||
-              "Google reverse geocoding failed.",
-          );
-        }
-      } catch (googleError) {
-        console.warn(
-          "⚠️ GOOGLE REVERSE GEOCODING FAILED:",
-          googleError,
+      } else {
+        setPickupAddress(
+          `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
         );
-
-        // Fallback to Expo's native reverse geocoder.
-        try {
-          const addresses =
-            await Location.reverseGeocodeAsync({
-              latitude,
-              longitude,
-            });
-
-          if (addresses.length > 0) {
-            const address = addresses[0];
-
-            const parts = [
-              address.name,
-              address.street,
-              address.district,
-              address.city,
-              address.region,
-            ].filter(Boolean);
-
-            setPickupAddress(
-              parts.length > 0
-                ? parts.join(", ")
-                : `${latitude.toFixed(
-                    6,
-                  )}, ${longitude.toFixed(6)}`,
-            );
-          } else {
-            setPickupAddress(
-              `${latitude.toFixed(
-                6,
-              )}, ${longitude.toFixed(6)}`,
-            );
-          }
-        } catch {
-          setPickupAddress(
-            `${latitude.toFixed(
-              6,
-            )}, ${longitude.toFixed(6)}`,
-          );
-        }
       }
-
-      console.log(
-        "📍 CURRENT PICKUP:",
-        latitude,
-        longitude,
+    } catch {
+      setPickupAddress(
+        `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
       );
-    } catch (error) {
-      console.error(
-        "❌ LOCATION ERROR:",
-        error,
-      );
-
-      setLocationError(
-        error instanceof Error
-          ? error.message
-          : "Unable to detect your current location.",
-      );
-    } finally {
-      setLocationLoading(false);
     }
-  }
 
+    console.log("📍 CURRENT PICKUP:", latitude, longitude);
+  } catch (error) {
+    console.error("❌ LOCATION ERROR:", error);
+
+    setLocationError(
+      error instanceof Error
+        ? error.message
+        : "Unable to detect your current location.",
+    );
+  } finally {
+    setLocationLoading(false);
+  }
+}
+  // ============================================================
+  // FIT MAP TO PICKUP + DESTINATION
+  // ============================================================
+  useEffect(() => {
+    const coordinates: Array<{
+      latitude: number;
+      longitude: number;
+    }> = [];
+
+    if (pickupLatitude !== null && pickupLongitude !== null) {
+      coordinates.push({
+        latitude: pickupLatitude,
+        longitude: pickupLongitude,
+      });
+    }
+
+    if (
+      destinationLatitude !== null &&
+      destinationLongitude !== null
+    ) {
+      coordinates.push({
+        latitude: destinationLatitude,
+        longitude: destinationLongitude,
+      });
+    }
+
+    if (coordinates.length === 0) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      mapRef.current?.fitToCoordinates(coordinates, {
+        edgePadding: { top: 60,
+          right: 40,
+          bottom: 60,
+          left: 40,
+        },
+        animated: true,
+      });
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [
+    pickupLatitude,
+    pickupLongitude,
+    destinationLatitude,
+    destinationLongitude,
+
+  ]);
   // ============================================================
   // INITIAL LOCATION
   // ============================================================
@@ -1216,6 +1283,22 @@ async function restoreActiveRide() {
         </View>
       ) : null}
 
+      {/* MAP */}
+
+      {!ride && pickupLatitude !== null && pickupLongitude !== null ? (
+  <View style={styles.mapContainer}>
+    <RideMap
+      ref={mapRef}
+      pickupLatitude={pickupLatitude}
+      pickupLongitude={pickupLongitude}
+      pickupAddress={pickupAddress}
+      destinationLatitude={destinationLatitude}
+      destinationLongitude={destinationLongitude}
+      destinationAddress={destinationAddress}
+    />
+  </View>
+) : null}
+
       {/* NEW BOOKING */}
 
       {!ride ? (
@@ -1715,6 +1798,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.lg,
     paddingTop: spacing.xxl,
+  },
+
+  mapContainer: {
+    height: 260,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  map: {
+    flex: 1,
   },
 
   backText: {
