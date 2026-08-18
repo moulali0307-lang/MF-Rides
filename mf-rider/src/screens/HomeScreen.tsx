@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Easing,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -16,31 +19,34 @@ interface HomeScreenProps {
 }
 
 // ---------------------------------------------------------------------------
-// MF-Rides design tokens — clean, daylight "premium mobility" look:
-// porcelain surfaces, near-black type, one confident indigo accent.
-// Self-contained so this screen's identity doesn't depend on other screens.
+// MF-Rides design tokens — premium, daylight mobility identity: porcelain
+// surfaces, near-black type, one confident indigo accent. Self-contained
+// so this screen's identity doesn't depend on other screens.
 // ---------------------------------------------------------------------------
 const mf = {
-  bg: "#F5F6FA",
+  bg: "#FBF8F1",
   surface: "#FFFFFF",
-  surfaceAlt: "#EFF1F8",
-  border: "#E4E7F1",
-  borderStrong: "#D3D8E6",
-  ink: "#12141C",
-  inkMuted: "#6B7180",
-  inkFaint: "#A0A5B4",
-  accent: "#3D4FE0",
-  accentDeep: "#2E3CB5",
-  accentSoft: "rgba(61, 79, 224, 0.08)",
-  accentGlow: "rgba(61, 79, 224, 0.35)",
-  success: "#189A5C",
-  successSoft: "rgba(24, 154, 92, 0.10)",
+  surfaceAlt: "#FFF3D6",
+  border: "#E8DDC9",
+  borderStrong: "#D8C6A5",
+  ink: "#172033",
+  inkMuted: "#747887",
+  inkFaint: "#A29C90",
+  accent: "#E3A321",
+  accentDeep: "#C98A13",
+  accentSoft: "rgba(227, 163, 33, 0.12)",
+  accentGlow: "rgba(227, 163, 33, 0.20)",
+  accentGlowStrong: "rgba(227, 163, 33, 0.38)",
+  success: "#159A62",
+  successSoft: "rgba(21, 154, 98, 0.10)",
   danger: "#D93A2B",
   dangerSoft: "rgba(217, 58, 43, 0.09)",
 };
 
 const space = { xs: 4, sm: 8, md: 14, lg: 20, xl: 30, xxl: 44 };
-const radii = { sm: 10, md: 16, lg: 24, pill: 999 };
+const radii = { sm: 10, md: 16, lg: 24, xl: 30, pill: 999 };
+
+const CONTENT_MAX_WIDTH = 520;
 
 export function HomeScreen({ onBookRide }: HomeScreenProps) {
   const { user, logout } = useAuth();
@@ -51,14 +57,82 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  // Purely visual — a subtle pulsing halo around the pickup node once GPS
-  // is live. Does not affect location state or business logic.
+  // ------------------------------------------------------------------
+  // Purely visual animation state — none of this affects location,
+  // auth, or navigation logic.
+  // ------------------------------------------------------------------
+  const fadeHeader = useRef(new Animated.Value(0)).current;
+  const fadeAccount = useRef(new Animated.Value(0)).current;
+  const fadeHero = useRef(new Animated.Value(0)).current;
+  const fadeActions = useRef(new Animated.Value(0)).current;
+  const fadeService = useRef(new Animated.Value(0)).current;
+
   const pulseAnim = useRef(new Animated.Value(0)).current;
+  const roadAnim = useRef(new Animated.Value(0)).current;
+  const ctaScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     detectCurrentLocation();
   }, []);
 
+  // Staggered entrance animation.
+  useEffect(() => {
+    Animated.stagger(90, [
+      Animated.timing(fadeHeader, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAccount, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeHero, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeActions, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeService, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [
+    fadeHeader,
+    fadeAccount,
+    fadeHero,
+    fadeActions,
+    fadeService,
+  ]);
+
+  // Decorative moving "road" dashes inside the hero card.
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(roadAnim, {
+        toValue: 1,
+        duration: 1100,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+
+    return () => loop.stop();
+  }, [roadAnim]);
+
+  // Subtle pulsing halo on the live location dot.
   useEffect(() => {
     if (!location) return;
 
@@ -113,6 +187,24 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
     onBookRide();
   };
 
+  const handleCtaPressIn = () => {
+    Animated.spring(ctaScale, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 24,
+      bounciness: 6,
+    }).start();
+  };
+
+  const handleCtaPressOut = () => {
+    Animated.spring(ctaScale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 24,
+      bounciness: 6,
+    }).start();
+  };
+
   const initials = (user?.fullName ?? "Rider")
     .trim()
     .split(/\s+/)
@@ -121,15 +213,21 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
     .join("")
     .toUpperCase();
 
-  const gpsLabel = locationLoading
-    ? "Locating"
-    : location
-    ? "Live"
-    : "Unavailable";
+  const fadeStyle = (value: Animated.Value) => ({
+    opacity: value,
+    transform: [
+      {
+        translateY: value.interpolate({
+          inputRange: [0, 1],
+          outputRange: [16, 0],
+        }),
+      },
+    ],
+  });
 
   const pulseScale = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 2.1],
+    outputRange: [1, 2.2],
   });
 
   const pulseOpacity = pulseAnim.interpolate({
@@ -137,96 +235,203 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
     outputRange: [0.45, 0],
   });
 
+  const roadTranslateX = roadAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -28],
+  });
+
+  const locationStatusLabel = locationLoading
+    ? "Finding your location…"
+    : location
+    ? "Location services active"
+    : locationError ?? "Location unavailable";
+
   return (
-    <View style={styles.container}>
-      <View>
-        {/* HEADER */}
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.eyebrow}>MF-RIDES</Text>
-            <Text style={styles.greeting} numberOfLines={1}>
-              Hi, {user?.fullName ?? "Rider"}
-            </Text>
-          </View>
-
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-        </View>
-
-        {/* ACCOUNT STRIP */}
-        <View style={styles.accountCard}>
-          <View style={styles.accountField}>
-            <Text style={styles.accountLabel}>Phone</Text>
-            <Text style={styles.accountValue} numberOfLines={1}>
-              {user?.phoneNumber}
-            </Text>
-          </View>
-
-          {user?.email ? (
-            <>
-              <View style={styles.accountDivider} />
-              <View style={styles.accountField}>
-                <Text style={styles.accountLabel}>Email</Text>
-                <Text style={styles.accountValue} numberOfLines={1}>
-                  {user.email}
-                </Text>
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          {/* HEADER */}
+          <Animated.View style={[styles.headerRow, fadeStyle(fadeHeader)]}>
+            <View style={styles.headerTextCol}>
+              <View style={styles.brandLine}>
+                <View style={styles.brandMark}>
+                  <Text style={styles.brandMarkText}>MF</Text>
+                </View>
+                <Text style={styles.eyebrow}>MF-RIDES</Text>
               </View>
-            </>
-          ) : null}
-
-          <View style={styles.accountDivider} />
-
-          <View style={styles.accountField}>
-            <Text style={styles.accountLabel}>Account</Text>
-            <Text style={styles.accountValue}>Rider</Text>
-          </View>
-        </View>
-
-        {/* YOUR RIDE — pickup / destination */}
-        <View style={styles.rideCard}>
-          <View style={styles.rideCardHeader}>
-            <Text style={styles.rideCardTitle}>Your ride</Text>
-
-            <View
-              style={[
-                styles.gpsPill,
-                location
-                  ? styles.gpsPillSuccess
-                  : locationLoading
-                  ? styles.gpsPillNeutral
-                  : styles.gpsPillDanger,
-              ]}
-            >
-              {locationLoading ? (
-                <ActivityIndicator size="small" color={mf.inkMuted} />
-              ) : (
-                <View
-                  style={[
-                    styles.gpsDot,
-                    location ? styles.gpsDotSuccess : styles.gpsDotDanger,
-                  ]}
-                />
-              )}
-              <Text
-                style={[
-                  styles.gpsPillText,
-                  location
-                    ? styles.gpsPillTextSuccess
-                    : locationLoading
-                    ? styles.gpsPillTextNeutral
-                    : styles.gpsPillTextDanger,
-                ]}
-              >
-                {gpsLabel}
+              <Text style={styles.greeting} numberOfLines={1}>
+                Hi, {user?.fullName ?? "Rider"}
+              </Text>
+              <Text style={styles.greetingSubtitle}>
+                Ready for your next ride?
               </Text>
             </View>
-          </View>
 
-          <View style={styles.routeRow}>
-            {/* Rail: pickup node -> dashed connector -> destination node */}
-            <View style={styles.rail}>
-              <View style={styles.pickupNodeWrap}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+          </Animated.View>
+
+          {/* ACCOUNT CARD */}
+          <Animated.View
+            style={[styles.accountCard, fadeStyle(fadeAccount)]}
+          >
+            <View style={styles.accountField}>
+              <Text style={styles.accountLabel}>Phone</Text>
+              <Text style={styles.accountValue} numberOfLines={1}>
+                {user?.phoneNumber}
+              </Text>
+            </View>
+
+            {user?.email ? (
+              <>
+                <View style={styles.accountDivider} />
+                <View style={styles.accountField}>
+                  <Text style={styles.accountLabel}>Email</Text>
+                  <Text style={styles.accountValue} numberOfLines={1}>
+                    {user.email}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+
+            <View style={styles.accountDivider} />
+
+            <View style={styles.accountField}>
+              <Text style={styles.accountLabel}>Account</Text>
+              <Text style={styles.accountValue}>Rider</Text>
+            </View>
+          </Animated.View>
+
+          {/* HERO / RIDE SECTION */}
+          <Animated.View style={[styles.heroCard, fadeStyle(fadeHero)]}>
+            <View style={styles.heroGlowTop} />
+            <View style={styles.heroGlowBottom} />
+
+            <Text style={styles.heroTitle}>Where are you heading?</Text>
+            <Text style={styles.heroSubtitle}>
+              Your ride is just a tap away.
+            </Text>
+
+            <View style={styles.heroVehicles}>
+              <Text style={styles.heroCar}>🚕</Text>
+              <Text style={styles.heroBike}>🏍️</Text>
+              <View style={styles.heroVehicleRoad} />
+            </View>
+
+            {/* Decorative animated road visual */}
+            <View style={styles.roadTrack}>
+              <View style={styles.roadNodeStart} />
+
+              <View style={styles.roadDashClip}>
+                <Animated.View
+                  style={[
+                    styles.roadDashRow,
+                    { transform: [{ translateX: roadTranslateX }] },
+                  ]}
+                >
+                  {Array.from({ length: 24 }).map((_, i) => (
+                    <View key={i} style={styles.roadDash} />
+                  ))}
+                </Animated.View>
+              </View>
+
+              <View style={styles.roadNodeEnd} />
+            </View>
+
+            <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
+              <Pressable
+                style={styles.heroCta}
+                onPress={handleBookRide}
+                onPressIn={handleCtaPressIn}
+                onPressOut={handleCtaPressOut}
+              >
+                <Text style={styles.heroCtaText}>Book a Ride</Text>
+                <View style={styles.heroCtaArrowWrap}>
+                  <Text style={styles.heroCtaArrow}>→</Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+          </Animated.View>
+
+          {/* QUICK ACTIONS */}
+          <Animated.View
+            style={[styles.quickActionsRow, fadeStyle(fadeActions)]}
+          >
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionCard,
+                pressed && styles.actionCardPressed,
+              ]}
+              onPress={detectCurrentLocation}
+            >
+              <View style={styles.actionIconBadge}>
+                <Text style={styles.actionIconGlyph}>◎</Text>
+              </View>
+              <Text style={styles.actionLabel}>Current{"\n"}Location</Text>
+            </Pressable>
+
+            <View style={styles.actionCard}>
+              <View style={styles.actionIconBadge}>
+                <Text style={styles.actionIconGlyph}>▤</Text>
+              </View>
+              <Text style={styles.actionLabel}>Ride{"\n"}History</Text>
+              <View style={styles.soonPill}>
+                <Text style={styles.soonPillText}>Soon</Text>
+              </View>
+            </View>
+
+            <View style={styles.actionCard}>
+              <View style={styles.actionIconBadge}>
+                <Text style={styles.actionIconGlyph}>✦</Text>
+              </View>
+              <Text style={styles.actionLabel}>Support</Text>
+              <View style={styles.soonPill}>
+                <Text style={styles.soonPillText}>Soon</Text>
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* SERVICE INFORMATION */}
+          <Animated.View
+            style={[styles.serviceCard, fadeStyle(fadeService)]}
+          >
+            <Text style={styles.serviceCardTitle}>MF-Rides Service</Text>
+
+            <View style={styles.serviceGrid}>
+              <View style={styles.serviceCell}>
+                <View style={styles.serviceCellIconWrap}>
+                  <Text style={styles.serviceCellIcon}>◎</Text>
+                </View>
+                <Text style={styles.serviceCellLabel}>Nearby rides</Text>
+              </View>
+
+              <View style={styles.serviceCellDivider} />
+
+              <View style={styles.serviceCell}>
+                <View style={styles.serviceCellIconWrap}>
+                  <Text style={styles.serviceCellIcon}>↔</Text>
+                </View>
+                <Text style={styles.serviceCellLabel}>30 km coverage</Text>
+              </View>
+
+              <View style={styles.serviceCellDivider} />
+
+              <View style={styles.serviceCell}>
+                <View style={styles.serviceCellIconWrap}>
+                  <Text style={styles.serviceCellIcon}>✓</Text>
+                </View>
+                <Text style={styles.serviceCellLabel}>Verified partners</Text>
+              </View>
+            </View>
+
+            {/* LOCATION STATUS */}
+            <View style={styles.locationStatusRow}>
+              <View style={styles.locationStatusDotWrap}>
                 {location ? (
                   <Animated.View
                     style={[
@@ -238,119 +443,84 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
                     ]}
                   />
                 ) : null}
-                <View
-                  style={[
-                    styles.pickupNode,
-                    location
-                      ? styles.pickupNodeActive
-                      : locationLoading
-                      ? styles.pickupNodePending
-                      : styles.pickupNodeError,
-                  ]}
-                />
-              </View>
 
-              <View style={styles.railConnector} />
-
-              <View style={styles.destinationNode} />
-            </View>
-
-            {/* Fields */}
-            <View style={styles.fieldsCol}>
-              <View style={styles.fieldBlock}>
-                <Text style={styles.fieldLabel}>Pickup</Text>
-                <View style={styles.fieldInput}>
-                  <Text style={styles.fieldInputText}>
-                    Choose pickup location
-                  </Text>
-                </View>
-
-                {!locationLoading && !location ? (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.retryLink,
-                      pressed && styles.retryLinkPressed,
+                {locationLoading ? (
+                  <ActivityIndicator size="small" color={mf.inkMuted} />
+                ) : (
+                  <View
+                    style={[
+                      styles.locationStatusDot,
+                      location
+                        ? styles.locationStatusDotActive
+                        : styles.locationStatusDotError,
                     ]}
-                    onPress={detectCurrentLocation}
-                  >
-                    <Text style={styles.retryLinkText}>
-                      {locationError ?? "Unable to detect location"} · Retry
-                    </Text>
-                  </Pressable>
-                ) : null}
+                  />
+                )}
               </View>
 
-              <View style={[styles.fieldBlock, styles.fieldBlockLast]}>
-                <Text style={styles.fieldLabel}>Destination</Text>
-                <View style={styles.fieldInput}>
-                  <Text style={styles.fieldInputText}>
-                    Where are you going?
-                  </Text>
-                </View>
-              </View>
+              <Text
+                style={[
+                  styles.locationStatusText,
+                  !location &&
+                    !locationLoading &&
+                    styles.locationStatusTextError,
+                ]}
+                numberOfLines={1}
+              >
+                {locationStatusLabel}
+              </Text>
+
+              {!locationLoading && !location ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.retryLink,
+                    pressed && styles.retryLinkPressed,
+                  ]}
+                  onPress={detectCurrentLocation}
+                >
+                  <Text style={styles.retryLinkText}>Retry</Text>
+                </Pressable>
+              ) : null}
             </View>
-          </View>
+          </Animated.View>
+
+          {/* LOGOUT */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.logoutButton,
+              pressed && styles.logoutButtonPressed,
+            ]}
+            onPress={logout}
+          >
+            <Text style={styles.logoutButtonText}>Log out</Text>
+          </Pressable>
         </View>
-
-        {/* BOOK RIDE */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.bookButton,
-            pressed && styles.bookButtonPressed,
-          ]}
-          onPress={handleBookRide}
-        >
-          <Text style={styles.bookButtonText}>Book a ride</Text>
-          <View style={styles.bookButtonArrowWrap}>
-            <Text style={styles.bookButtonArrow}>→</Text>
-          </View>
-        </Pressable>
-
-        {/* SERVICE INFO */}
-        <View style={styles.serviceGrid}>
-          <View style={styles.serviceCell}>
-            <Text style={styles.serviceCellLabel}>Coverage</Text>
-            <Text style={styles.serviceCellValue}>Nearby trips</Text>
-          </View>
-
-          <View style={styles.serviceCellDivider} />
-
-          <View style={styles.serviceCell}>
-            <Text style={styles.serviceCellLabel}>Max distance</Text>
-            <Text style={styles.serviceCellValue}>30 km</Text>
-          </View>
-
-          <View style={styles.serviceCellDivider} />
-
-          <View style={styles.serviceCell}>
-            <Text style={styles.serviceCellLabel}>Partners</Text>
-            <Text style={styles.serviceCellValue}>Verified</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* LOGOUT */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.logoutButton,
-          pressed && styles.logoutButtonPressed,
-        ]}
-        onPress={logout}
-      >
-        <Text style={styles.logoutButtonText}>Log out</Text>
-      </Pressable>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
     backgroundColor: mf.bg,
-    justifyContent: "space-between",
-    padding: space.lg,
-    paddingTop: space.xxl,
-    paddingBottom: space.xl,
+  },
+
+  scroll: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    paddingHorizontal: space.lg,
+    paddingTop: Platform.OS === "web" ? space.xxl : space.xxl,
+    paddingBottom: space.xxl,
+  },
+
+  content: {
+    width: "100%",
+    maxWidth: CONTENT_MAX_WIDTH,
   },
 
   // Header
@@ -358,6 +528,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
+  },
+
+  headerTextCol: {
+    flex: 1,
+    paddingRight: space.md,
+  },
+
+  brandLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 7,
+  },
+
+  brandMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: mf.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+
+  brandMarkText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.5,
   },
 
   eyebrow: {
@@ -373,14 +571,19 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: mf.ink,
     letterSpacing: -0.4,
-    maxWidth: 240,
+  },
+
+  greetingSubtitle: {
+    fontSize: 13,
+    color: mf.inkMuted,
+    marginTop: 3,
   },
 
   avatarCircle: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: mf.ink,
+    backgroundColor: mf.accent,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -391,15 +594,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-  // Account strip
+  // Account card
   accountCard: {
     flexDirection: "row",
     backgroundColor: mf.surface,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: mf.border,
-    padding: space.lg,
-    marginTop: space.xl,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    marginTop: space.lg,
   },
 
   accountField: {
@@ -424,237 +628,157 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: mf.ink,
-    marginTop: 4,
+    marginTop: 3,
   },
 
-  // Ride card
-  rideCard: {
-    backgroundColor: mf.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: mf.border,
-    padding: space.lg,
-    marginTop: space.md,
-    shadowColor: "#1B2140",
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
-    elevation: 2,
+  // Hero card
+  heroCard: {
+    backgroundColor: "#FFF8E8",
+    borderRadius: radii.xl,
+    padding: space.xl,
+    marginTop: space.lg,
+    overflow: "hidden",
+    position: "relative",
+    shadowColor: mf.accentDeep,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.28,
+    shadowRadius: 30,
+    elevation: 8,
   },
 
-  rideCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: space.lg,
+  heroGlowTop: {
+    position: "absolute",
+    top: -70,
+    right: -55,
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    backgroundColor: "rgba(227, 163, 33, 0.18)",
   },
 
-  rideCardTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: mf.inkFaint,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
+  heroGlowBottom: {
+    position: "absolute",
+    bottom: -75,
+    left: -45,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    backgroundColor: "rgba(23, 32, 51, 0.06)",
   },
 
-  gpsPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radii.pill,
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: mf.ink,
+    letterSpacing: -0.3,
   },
 
-  gpsPillSuccess: {
-    backgroundColor: mf.successSoft,
-  },
-
-  gpsPillNeutral: {
-    backgroundColor: mf.surfaceAlt,
-  },
-
-  gpsPillDanger: {
-    backgroundColor: mf.dangerSoft,
-  },
-
-  gpsDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-
-  gpsDotSuccess: {
-    backgroundColor: mf.success,
-  },
-
-  gpsDotDanger: {
-    backgroundColor: mf.danger,
-  },
-
-  gpsPillText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-
-  gpsPillTextSuccess: {
-    color: mf.success,
-  },
-
-  gpsPillTextNeutral: {
+  heroSubtitle: {
+    fontSize: 14,
     color: mf.inkMuted,
+    marginTop: 6,
   },
 
-  gpsPillTextDanger: {
-    color: mf.danger,
-  },
-
-  // Route row: rail + fields
-  routeRow: {
-    flexDirection: "row",
-  },
-
-  rail: {
-    width: 22,
-    alignItems: "center",
-    marginRight: space.md,
-    paddingTop: 14,
-  },
-
-  pickupNodeWrap: {
-    width: 22,
-    height: 22,
+  // Car + bike hero visual
+  heroVehicles: {
+    height: 112,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 20,
+    backgroundColor: "#FFF1C9",
+    position: "relative",
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
 
-  pulseHalo: {
+  heroCar: {
+    fontSize: 68,
+    marginTop: 5,
+    marginLeft: -36,
+  },
+
+  heroBike: {
     position: "absolute",
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: mf.accentGlow,
+    right: 26,
+    bottom: 19,
+    fontSize: 43,
   },
 
-  pickupNode: {
-    width: 13,
-    height: 13,
-    borderRadius: 6.5,
-    borderWidth: 3,
-  },
-
-  pickupNodeActive: {
+  heroVehicleRoad: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 15,
+    height: 3,
+    borderRadius: 2,
     backgroundColor: mf.accent,
-    borderColor: mf.accentSoft,
+    transform: [{ rotate: "-3deg" }],
   },
 
-  pickupNodePending: {
-    backgroundColor: mf.inkFaint,
-    borderColor: mf.surfaceAlt,
-  },
-
-  pickupNodeError: {
-    backgroundColor: mf.danger,
-    borderColor: mf.dangerSoft,
-  },
-
-  railConnector: {
-    width: 2,
-    flex: 1,
-    minHeight: 46,
-    backgroundColor: mf.borderStrong,
-    marginVertical: 6,
-  },
-
-  destinationNode: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: mf.borderStrong,
-    backgroundColor: mf.surface,
-  },
-
-  fieldsCol: {
-    flex: 1,
-  },
-
-  fieldBlock: {
+  // Decorative road visual
+  roadTrack: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: space.xl,
     marginBottom: space.lg,
   },
 
-  fieldBlockLast: {
-    marginBottom: 0,
-  },
-
-  fieldLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: mf.accent,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
-
-  fieldInput: {
-    borderWidth: 1,
-    borderColor: mf.border,
-    backgroundColor: mf.surfaceAlt,
-    borderRadius: radii.sm,
-    paddingHorizontal: space.md,
-    paddingVertical: 13,
-  },
-
-  fieldInputText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: mf.inkMuted,
-  },
-
-  retryLink: {
-    alignSelf: "flex-start",
-    marginTop: space.sm,
-  },
-
-  retryLinkPressed: {
-    opacity: 0.6,
-  },
-
-  retryLinkText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: mf.danger,
-  },
-
-  // Book ride CTA
-  bookButton: {
+  roadNodeStart: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: mf.accent,
+  },
+
+  roadNodeEnd: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: mf.borderStrong,
+    backgroundColor: "transparent",
+  },
+
+  roadDashClip: {
+    flex: 1,
+    height: 2,
+    marginHorizontal: space.sm,
+    overflow: "hidden",
+  },
+
+  roadDashRow: {
+    flexDirection: "row",
+    width: 700,
+    height: 2,
+  },
+
+  roadDash: {
+    width: 16,
+    height: 2,
+    marginRight: 12,
+    backgroundColor: "rgba(23,32,51,0.22)",
+    borderRadius: 1,
+  },
+
+  heroCta: {
+    backgroundColor: mf.ink,
     borderRadius: radii.md,
-    paddingVertical: 18,
+    paddingVertical: 17,
     paddingHorizontal: space.lg,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: space.xl,
-    shadowColor: mf.accent,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    elevation: 5,
   },
 
-  bookButtonPressed: {
-    backgroundColor: mf.accentDeep,
-  },
-
-  bookButtonText: {
+  heroCtaText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.2,
   },
 
-  bookButtonArrowWrap: {
+  heroCtaArrowWrap: {
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -663,21 +787,99 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  bookButtonArrow: {
+  heroCtaArrow: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "800",
   },
 
-  // Service info grid
-  serviceGrid: {
+  // Quick actions
+  quickActionsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: mf.surfaceAlt,
-    borderRadius: radii.md,
     marginTop: space.lg,
+    gap: space.sm,
+  },
+
+  actionCard: {
+    flex: 1,
+    backgroundColor: mf.surface,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: mf.border,
     paddingVertical: space.md,
     paddingHorizontal: space.sm,
+    alignItems: "center",
+    position: "relative",
+  },
+
+  actionCardPressed: {
+    backgroundColor: mf.surfaceAlt,
+  },
+
+  actionIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: mf.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: space.sm,
+  },
+
+  actionIconGlyph: {
+    color: mf.accent,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  actionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: mf.ink,
+    textAlign: "center",
+    lineHeight: 15,
+  },
+
+  soonPill: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: mf.surfaceAlt,
+    borderRadius: radii.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+
+  soonPillText: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: mf.inkFaint,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+
+  // Service card
+  serviceCard: {
+    backgroundColor: mf.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: mf.border,
+    padding: space.lg,
+    marginTop: space.lg,
+  },
+
+  serviceCardTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: mf.inkFaint,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    marginBottom: space.md,
+  },
+
+  serviceGrid: {
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
 
   serviceCell: {
@@ -687,23 +889,97 @@ const styles = StyleSheet.create({
 
   serviceCellDivider: {
     width: 1,
-    height: 28,
-    backgroundColor: mf.borderStrong,
+    height: 40,
+    backgroundColor: mf.border,
+    marginTop: 6,
+  },
+
+  serviceCellIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: mf.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+
+  serviceCellIcon: {
+    color: mf.accent,
+    fontSize: 13,
+    fontWeight: "700",
   },
 
   serviceCellLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
-    color: mf.inkFaint,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
+    color: mf.inkMuted,
+    textAlign: "center",
   },
 
-  serviceCellValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: mf.ink,
-    marginTop: 4,
+  // Location status
+  locationStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: space.lg,
+    paddingTop: space.md,
+    borderTopWidth: 1,
+    borderTopColor: mf.border,
+  },
+
+  locationStatusDotWrap: {
+    width: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: space.sm,
+  },
+
+  pulseHalo: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: mf.accentGlowStrong,
+  },
+
+  locationStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  locationStatusDotActive: {
+    backgroundColor: mf.success,
+  },
+
+  locationStatusDotError: {
+    backgroundColor: mf.danger,
+  },
+
+  locationStatusText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: mf.inkMuted,
+  },
+
+  locationStatusTextError: {
+    color: mf.danger,
+  },
+
+  retryLink: {
+    marginLeft: space.sm,
+  },
+
+  retryLinkPressed: {
+    opacity: 0.6,
+  },
+
+  retryLinkText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: mf.accent,
   },
 
   // Logout
@@ -714,6 +990,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: mf.border,
     backgroundColor: mf.surface,
+    marginTop: space.xl,
   },
 
   logoutButtonPressed: {
