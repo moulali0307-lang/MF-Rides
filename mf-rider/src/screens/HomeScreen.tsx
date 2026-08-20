@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -11,491 +10,387 @@ import {
   View,
 } from "react-native";
 import * as Location from "expo-location";
-
 import { useAuth } from "../context/AuthContext";
 
 interface HomeScreenProps {
   onBookRide: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// MF-Rides design tokens — premium, daylight mobility identity: porcelain
-// surfaces, near-black type, one confident indigo accent. Self-contained
-// so this screen's identity doesn't depend on other screens.
-// ---------------------------------------------------------------------------
-const mf = {
-  bg: "#FBF8F1",
-  surface: "#FFFFFF",
-  surfaceAlt: "#FFF3D6",
-  border: "#E8DDC9",
-  borderStrong: "#D8C6A5",
-  ink: "#172033",
-  inkMuted: "#747887",
-  inkFaint: "#A29C90",
-  accent: "#E3A321",
-  accentDeep: "#C98A13",
-  accentSoft: "rgba(227, 163, 33, 0.12)",
-  accentGlow: "rgba(227, 163, 33, 0.20)",
-  accentGlowStrong: "rgba(227, 163, 33, 0.38)",
-  success: "#159A62",
-  successSoft: "rgba(21, 154, 98, 0.10)",
-  danger: "#D93A2B",
-  dangerSoft: "rgba(217, 58, 43, 0.09)",
+const COLORS = {
+  bg: "#FBF7EF",
+  cream: "#FFF1CF",
+  cream2: "#F5DEAA",
+  gold: "#E8A20A",
+  goldDark: "#C88400",
+  navy: "#101B2E",
+  white: "#FFFFFF",
+  green: "#159A62",
+  red: "#E94B43",
+  bus: "#E0F5F3",
+  train: "#E8ECFF",
+  pink: "#FCE6E6",
+  recharge: "#EAF5DD",
+  more: "#F3E9D8",
 };
 
-const space = { xs: 4, sm: 8, md: 14, lg: 20, xl: 30, xxl: 44 };
-const radii = { sm: 10, md: 16, lg: 24, xl: 30, pill: 999 };
-
-const CONTENT_MAX_WIDTH = 520;
+const IMAGES = {
+  car: "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1500&q=90",
+  bus: "https://images.unsplash.com/photo-1570125909232-eb263c188f7a?auto=format&fit=crop&w=900&q=90",
+  train: "https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=900&q=90",
+  movie: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=90",
+  recharge:
+    "https://images.unsplash.com/photo-1609592424830-7e4e8f8f1c16?auto=format&fit=crop&w=900&q=90",
+};
 
 export function HomeScreen({ onBookRide }: HomeScreenProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
-  const [location, setLocation] =
-    useState<Location.LocationObject | null>(null);
-
+  const [locationLabel, setLocationLabel] = useState("Current location");
   const [locationLoading, setLocationLoading] = useState(true);
-  const [locationError, setLocationError] = useState<string | null>(null);
-
-  // ------------------------------------------------------------------
-  // Purely visual animation state — none of this affects location,
-  // auth, or navigation logic.
-  // ------------------------------------------------------------------
-  const fadeHeader = useRef(new Animated.Value(0)).current;
-  const fadeAccount = useRef(new Animated.Value(0)).current;
-  const fadeHero = useRef(new Animated.Value(0)).current;
-  const fadeActions = useRef(new Animated.Value(0)).current;
-  const fadeService = useRef(new Animated.Value(0)).current;
-
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-  const roadAnim = useRef(new Animated.Value(0)).current;
-  const ctaScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     detectCurrentLocation();
   }, []);
 
-  // Staggered entrance animation.
-  useEffect(() => {
-    Animated.stagger(90, [
-      Animated.timing(fadeHeader, {
-        toValue: 1,
-        duration: 420,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAccount, {
-        toValue: 1,
-        duration: 420,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeHero, {
-        toValue: 1,
-        duration: 460,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeActions, {
-        toValue: 1,
-        duration: 420,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeService, {
-        toValue: 1,
-        duration: 420,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [
-    fadeHeader,
-    fadeAccount,
-    fadeHero,
-    fadeActions,
-    fadeService,
-  ]);
-
-  // Decorative moving "road" dashes inside the hero card.
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(roadAnim, {
-        toValue: 1,
-        duration: 1100,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-    loop.start();
-
-    return () => loop.stop();
-  }, [roadAnim]);
-
-  // Subtle pulsing halo on the live location dot.
-  useEffect(() => {
-    if (!location) return;
-
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-
-    return () => loop.stop();
-  }, [location, pulseAnim]);
-
   const detectCurrentLocation = async () => {
     try {
       setLocationLoading(true);
-      setLocationError(null);
 
       const { status } =
         await Location.requestForegroundPermissionsAsync();
 
-      if (status !== Location.PermissionStatus.GRANTED) {
-        setLocationError("Location permission denied");
-        setLocationLoading(false);
+      if (status !== "granted") {
+        setLocationLabel("Tap to detect location");
         return;
       }
 
-      const currentLocation =
-        await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
 
-      setLocation(currentLocation);
+      const result = await Location.reverseGeocodeAsync({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+
+      if (result.length > 0) {
+        const place = result[0];
+        setLocationLabel(
+          place.city ||
+            place.district ||
+            place.subregion ||
+            place.region ||
+            "Current location"
+        );
+      }
     } catch (error) {
-      console.error("Location error:", error);
-      setLocationError("Unable to detect your location");
+      console.log("Location error:", error);
+      setLocationLabel("Current location");
     } finally {
       setLocationLoading(false);
     }
   };
 
-  const handleBookRide = () => {
-    onBookRide();
-  };
-
-  const handleCtaPressIn = () => {
-    Animated.spring(ctaScale, {
-      toValue: 0.97,
-      useNativeDriver: true,
-      speed: 24,
-      bounciness: 6,
-    }).start();
-  };
-
-  const handleCtaPressOut = () => {
-    Animated.spring(ctaScale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 24,
-      bounciness: 6,
-    }).start();
-  };
-
-  const initials = (user?.fullName ?? "Rider")
-    .trim()
-    .split(/\s+/)
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-  const fadeStyle = (value: Animated.Value) => ({
-    opacity: value,
-    transform: [
-      {
-        translateY: value.interpolate({
-          inputRange: [0, 1],
-          outputRange: [16, 0],
-        }),
-      },
-    ],
-  });
-
-  const pulseScale = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 2.2],
-  });
-
-  const pulseOpacity = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.45, 0],
-  });
-
-  const roadTranslateX = roadAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -28],
-  });
-
-  const locationStatusLabel = locationLoading
-    ? "Finding your location…"
-    : location
-    ? "Location services active"
-    : locationError ?? "Location unavailable";
+  const displayName = user?.email?.split("@")[0] || "MF Rider";
 
   return (
     <View style={styles.screen}>
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.content}>
-          {/* HEADER */}
-          <Animated.View style={[styles.headerRow, fadeStyle(fadeHeader)]}>
-            <View style={styles.headerTextCol}>
-              <View style={styles.brandLine}>
-                <View style={styles.brandMark}>
-                  <Text style={styles.brandMarkText}>MF</Text>
-                </View>
-                <Text style={styles.eyebrow}>MF-RIDES</Text>
+        {/* HEADER */}
+        <View style={styles.header}>
+          <View style={styles.brandContainer}>
+            <View style={styles.wingLogo}>
+              <View style={styles.wingLeft} />
+              <View style={styles.logoCircle}>
+                <Text style={styles.logoText}>MF</Text>
               </View>
-              <Text style={styles.greeting} numberOfLines={1}>
-                Hi, {user?.fullName ?? "Rider"}
-              </Text>
-              <Text style={styles.greetingSubtitle}>
-                Ready for your next ride?
-              </Text>
+              <View style={styles.wingRight} />
             </View>
 
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{initials}</Text>
+            <View>
+              <Text style={styles.brandName}>MF-RIDES</Text>
+              <Text style={styles.brandTagline}>Ride. Travel. Explore.</Text>
             </View>
-          </Animated.View>
+          </View>
 
-          {/* ACCOUNT CARD */}
-          <Animated.View
-            style={[styles.accountCard, fadeStyle(fadeAccount)]}
-          >
-            <View style={styles.accountField}>
-              <Text style={styles.accountLabel}>Phone</Text>
-              <Text style={styles.accountValue} numberOfLines={1}>
-                {user?.phoneNumber}
-              </Text>
+          <View style={styles.headerRight}>
+            <View style={styles.securePill}>
+              <Text style={styles.secureCheck}>✓</Text>
+              <Text style={styles.secureText}>100% Secure</Text>
             </View>
 
-            {user?.email ? (
-              <>
-                <View style={styles.accountDivider} />
-                <View style={styles.accountField}>
-                  <Text style={styles.accountLabel}>Email</Text>
-                  <Text style={styles.accountValue} numberOfLines={1}>
-                    {user.email}
-                  </Text>
-                </View>
-              </>
-            ) : null}
+            <Pressable style={styles.menuButton}>
+              <Text style={styles.menuText}>☰</Text>
+            </Pressable>
+          </View>
+        </View>
 
-            <View style={styles.accountDivider} />
+        {/* HERO */}
+        <View style={styles.hero}>
+          <View style={styles.heroBgGlow} />
 
-            <View style={styles.accountField}>
-              <Text style={styles.accountLabel}>Account</Text>
-              <Text style={styles.accountValue}>Rider</Text>
+          <View style={styles.heroLeft}>
+            <View style={styles.premiumBadge}>
+              <View style={styles.badgeDot} />
+              <Text style={styles.badgeText}>PREMIUM RIDE SERVICE</Text>
             </View>
-          </Animated.View>
 
-          {/* HERO / RIDE SECTION */}
-          <Animated.View style={[styles.heroCard, fadeStyle(fadeHero)]}>
-            <View style={styles.heroGlowTop} />
-            <View style={styles.heroGlowBottom} />
+            <Text style={styles.heroTitle}>MF RIDES</Text>
+            <Text style={styles.heroGoldTitle}>Unlimited</Text>
+            <Text style={styles.heroTitle}>journeys.</Text>
 
-            <Text style={styles.heroTitle}>Where are you heading?</Text>
             <Text style={styles.heroSubtitle}>
-              Your ride is just a tap away.
+              From daily rides to long journeys,
+              {"\n"}we&apos;ve got you covered.
             </Text>
 
-            <View style={styles.heroVehicles}>
-              <Text style={styles.heroCar}>🚕</Text>
-              <Text style={styles.heroBike}>🏍️</Text>
-              <View style={styles.heroVehicleRoad} />
-            </View>
-
-            {/* Decorative animated road visual */}
-            <View style={styles.roadTrack}>
-              <View style={styles.roadNodeStart} />
-
-              <View style={styles.roadDashClip}>
-                <Animated.View
-                  style={[
-                    styles.roadDashRow,
-                    { transform: [{ translateX: roadTranslateX }] },
-                  ]}
-                >
-                  {Array.from({ length: 24 }).map((_, i) => (
-                    <View key={i} style={styles.roadDash} />
-                  ))}
-                </Animated.View>
+            <View style={styles.featureRow}>
+              <View style={styles.featurePill}>
+                <Text style={styles.featureIcon}>✓</Text>
+                <Text style={styles.featureText}>Safe &amp; Secure</Text>
               </View>
 
-              <View style={styles.roadNodeEnd} />
+              <View style={styles.featurePill}>
+                <Text style={styles.featureIcon}>⚡</Text>
+                <Text style={styles.featureText}>Quick &amp; Reliable</Text>
+              </View>
+
+              <View style={styles.featurePill}>
+                <Text style={styles.featureIcon}>♙</Text>
+                <Text style={styles.featureText}>Verified Partners</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.heroCarArea}>
+            <View style={styles.carGlow} />
+
+            <Image
+              source={{ uri: IMAGES.car }}
+              style={styles.heroCar}
+              resizeMode="contain"
+            />
+
+            {/* MF branding */}
+            <View style={styles.carBrandPlate}>
+              <Text style={styles.carBrandMF}>MF</Text>
+              <Text style={styles.carBrandSmall}>RIDE WITH STYLE</Text>
             </View>
 
-            <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
-              <Pressable
-                style={styles.heroCta}
-                onPress={handleBookRide}
-                onPressIn={handleCtaPressIn}
-                onPressOut={handleCtaPressOut}
-              >
-                <Text style={styles.heroCtaText}>Book a Ride</Text>
-                <View style={styles.heroCtaArrowWrap}>
-                  <Text style={styles.heroCtaArrow}>→</Text>
+            <View style={styles.floatingLogo}>
+              <Text style={styles.floatingLogoText}>MF</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* PICKUP / DROP */}
+        <Pressable style={styles.routeBar} onPress={onBookRide}>
+          <View style={styles.routeSection}>
+            <View style={styles.greenDotBox}>
+              <View style={styles.greenDot} />
+            </View>
+
+            <View>
+              <Text style={styles.routeSmall}>PICKUP</Text>
+              {locationLoading ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator size="small" color={COLORS.gold} />
+                  <Text style={styles.routeValue}>Detecting...</Text>
                 </View>
-              </Pressable>
-            </Animated.View>
-          </Animated.View>
+              ) : (
+                <>
+                  <Text style={styles.routeValue}>{locationLabel}</Text>
+                  <Text style={styles.routeHint}>Use my location</Text>
+                </>
+              )}
+            </View>
+          </View>
 
-          {/* QUICK ACTIONS */}
-          <Animated.View
-            style={[styles.quickActionsRow, fadeStyle(fadeActions)]}
-          >
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionCard,
-                pressed && styles.actionCardPressed,
-              ]}
-              onPress={detectCurrentLocation}
-            >
-              <View style={styles.actionIconBadge}>
-                <Text style={styles.actionIconGlyph}>◎</Text>
-              </View>
-              <Text style={styles.actionLabel}>Current{"\n"}Location</Text>
-            </Pressable>
+          <View style={styles.routeMiddle}>
+            <View style={styles.routeLine} />
+            <View style={styles.swapCircle}>
+              <Text style={styles.swapText}>⇄</Text>
+            </View>
+            <View style={styles.routeLine} />
+          </View>
 
-            <View style={styles.actionCard}>
-              <View style={styles.actionIconBadge}>
-                <Text style={styles.actionIconGlyph}>▤</Text>
-              </View>
-              <Text style={styles.actionLabel}>Ride{"\n"}History</Text>
-              <View style={styles.soonPill}>
-                <Text style={styles.soonPillText}>Soon</Text>
+          <View style={styles.routeSection}>
+            <View style={styles.redDotBox}>
+              <View style={styles.redDot} />
+            </View>
+
+            <View>
+              <Text style={styles.routeSmall}>DROP</Text>
+              <Text style={styles.routeValue}>Where are you going?</Text>
+              <Text style={styles.routeHint}>Search destination</Text>
+            </View>
+          </View>
+
+          <View style={styles.routeArrow}>
+            <Text style={styles.routeArrowText}>→</Text>
+          </View>
+        </Pressable>
+
+        {/* SERVICE GRID */}
+        <View style={styles.grid}>
+          <ServiceCard
+            label="CAR"
+            title="Ride"
+            subtitle="Book a ride"
+            background={COLORS.cream}
+            image={IMAGES.car}
+            onPress={onBookRide}
+          />
+
+          <ServiceCard
+            label="BUS"
+            title="Bus"
+            subtitle="Tickets & Passes"
+            background={COLORS.bus}
+            image={IMAGES.bus}
+          />
+
+          <ServiceCard
+            label="TRAIN"
+            title="Train"
+            subtitle="Tickets"
+            background={COLORS.train}
+            image={IMAGES.train}
+          />
+
+          <ServiceCard
+            label="MOVIES"
+            title="Movies"
+            subtitle="Book now"
+            background={COLORS.pink}
+            image={IMAGES.movie}
+          />
+
+          <ServiceCard
+            label="RECHARGE"
+            title="Recharge"
+            subtitle="Mobile & more"
+            background={COLORS.recharge}
+            image={IMAGES.recharge}
+          />
+
+          <Pressable style={[styles.serviceCard, { backgroundColor: COLORS.more }]}>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardLabel}>MORE</Text>
+              <Text style={styles.cardTitle}>More</Text>
+              <Text style={styles.cardSubtitle}>Services</Text>
+              <View style={styles.smallArrow}>
+                <Text style={styles.smallArrowText}>→</Text>
               </View>
             </View>
 
-            <View style={styles.actionCard}>
-              <View style={styles.actionIconBadge}>
-                <Text style={styles.actionIconGlyph}>✦</Text>
-              </View>
-              <Text style={styles.actionLabel}>Support</Text>
-              <View style={styles.soonPill}>
-                <Text style={styles.soonPillText}>Soon</Text>
-              </View>
+            <View style={styles.moreIcons}>
+              <View style={styles.moreIcon}><Text>✈</Text></View>
+              <View style={styles.moreIcon}><Text>▣</Text></View>
+              <View style={styles.moreIcon}><Text>✣</Text></View>
+              <View style={styles.moreIcon}><Text>⚙</Text></View>
+              <View style={styles.moreIcon}><Text>◎</Text></View>
+              <View style={styles.moreIcon}><Text>•••</Text></View>
             </View>
-          </Animated.View>
-
-          {/* SERVICE INFORMATION */}
-          <Animated.View
-            style={[styles.serviceCard, fadeStyle(fadeService)]}
-          >
-            <Text style={styles.serviceCardTitle}>MF-Rides Service</Text>
-
-            <View style={styles.serviceGrid}>
-              <View style={styles.serviceCell}>
-                <View style={styles.serviceCellIconWrap}>
-                  <Text style={styles.serviceCellIcon}>◎</Text>
-                </View>
-                <Text style={styles.serviceCellLabel}>Nearby rides</Text>
-              </View>
-
-              <View style={styles.serviceCellDivider} />
-
-              <View style={styles.serviceCell}>
-                <View style={styles.serviceCellIconWrap}>
-                  <Text style={styles.serviceCellIcon}>↔</Text>
-                </View>
-                <Text style={styles.serviceCellLabel}>30 km coverage</Text>
-              </View>
-
-              <View style={styles.serviceCellDivider} />
-
-              <View style={styles.serviceCell}>
-                <View style={styles.serviceCellIconWrap}>
-                  <Text style={styles.serviceCellIcon}>✓</Text>
-                </View>
-                <Text style={styles.serviceCellLabel}>Verified partners</Text>
-              </View>
-            </View>
-
-            {/* LOCATION STATUS */}
-            <View style={styles.locationStatusRow}>
-              <View style={styles.locationStatusDotWrap}>
-                {location ? (
-                  <Animated.View
-                    style={[
-                      styles.pulseHalo,
-                      {
-                        opacity: pulseOpacity,
-                        transform: [{ scale: pulseScale }],
-                      },
-                    ]}
-                  />
-                ) : null}
-
-                {locationLoading ? (
-                  <ActivityIndicator size="small" color={mf.inkMuted} />
-                ) : (
-                  <View
-                    style={[
-                      styles.locationStatusDot,
-                      location
-                        ? styles.locationStatusDotActive
-                        : styles.locationStatusDotError,
-                    ]}
-                  />
-                )}
-              </View>
-
-              <Text
-                style={[
-                  styles.locationStatusText,
-                  !location &&
-                    !locationLoading &&
-                    styles.locationStatusTextError,
-                ]}
-                numberOfLines={1}
-              >
-                {locationStatusLabel}
-              </Text>
-
-              {!locationLoading && !location ? (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.retryLink,
-                    pressed && styles.retryLinkPressed,
-                  ]}
-                  onPress={detectCurrentLocation}
-                >
-                  <Text style={styles.retryLinkText}>Retry</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </Animated.View>
-
-          {/* LOGOUT */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.logoutButton,
-              pressed && styles.logoutButtonPressed,
-            ]}
-            onPress={logout}
-          >
-            <Text style={styles.logoutButtonText}>Log out</Text>
           </Pressable>
         </View>
+
+        {/* REWARDS */}
+        <Pressable style={styles.rewardsCard}>
+          <View style={styles.rewardLogo}>
+            <Text style={styles.rewardLogoText}>MF</Text>
+          </View>
+
+          <View style={styles.rewardTextBox}>
+            <Text style={styles.rewardTitle}>MF Rewards</Text>
+            <Text style={styles.rewardSubtitle}>More rides. More rewards.</Text>
+          </View>
+
+          <View style={styles.rewardPoints}>
+            <Text style={styles.pointsNumber}>0</Text>
+            <Text style={styles.pointsText}>POINTS</Text>
+          </View>
+
+          <Text style={styles.rewardArrow}>→</Text>
+        </Pressable>
+
+        {/* CTA */}
+        <Pressable style={styles.startButton} onPress={onBookRide}>
+          <Text style={styles.startButtonText}>Start your journey</Text>
+          <View style={styles.startArrowBox}>
+            <Text style={styles.startArrow}>→</Text>
+          </View>
+        </Pressable>
+
+        {/* LOGIN */}
+        <View style={styles.loginRow}>
+          <Text style={styles.loginNormal}>Already have an account? </Text>
+          <Text style={styles.loginText}>Log in</Text>
+        </View>
+
+        {/* TRUST */}
+        <View style={styles.trustRow}>
+          <TrustItem text="Safe Rides" />
+          <TrustItem text="Verified Partners" />
+          <TrustItem text="Secure Payments" />
+          <TrustItem text="24/7 Support" />
+        </View>
+
+        <Text style={styles.welcomeUser}>Welcome, {displayName}</Text>
       </ScrollView>
+    </View>
+  );
+}
+
+function ServiceCard({
+  label,
+  title,
+  subtitle,
+  background,
+  image,
+  onPress,
+}: {
+  label: string;
+  title: string;
+  subtitle: string;
+  background: string;
+  image: string;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.serviceCard, { backgroundColor: background }]}
+      onPress={onPress}
+    >
+      <View style={styles.cardContent}>
+        <Text style={styles.cardLabel}>{label}</Text>
+        <Text style={styles.cardTitle}>{title}</Text>
+        <Text style={styles.cardSubtitle}>{subtitle}</Text>
+
+        <View style={styles.smallArrow}>
+          <Text style={styles.smallArrowText}>→</Text>
+        </View>
+      </View>
+
+      <Image
+        source={{ uri: image }}
+        style={styles.cardImage}
+        resizeMode="cover"
+      />
+    </Pressable>
+  );
+}
+
+function TrustItem({ text }: { text: string }) {
+  return (
+    <View style={styles.trustItem}>
+      <View style={styles.trustCheck}>
+        <Text style={styles.trustCheckText}>✓</Text>
+      </View>
+      <Text style={styles.trustText}>{text}</Text>
     </View>
   );
 }
@@ -503,503 +398,699 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: mf.bg,
-  },
-
-  scroll: {
-    flex: 1,
+    backgroundColor: COLORS.bg,
   },
 
   scrollContent: {
-    flexGrow: 1,
-    alignItems: "center",
-    paddingHorizontal: space.lg,
-    paddingTop: Platform.OS === "web" ? space.xxl : space.xxl,
-    paddingBottom: space.xxl,
-  },
-
-  content: {
     width: "100%",
-    maxWidth: CONTENT_MAX_WIDTH,
+    maxWidth: 1400,
+    alignSelf: "center",
+    paddingHorizontal: Platform.OS === "web" ? 48 : 16,
+    paddingTop: Platform.OS === "web" ? 14 : 12,
+    paddingBottom: 45,
   },
 
-  // Header
-  headerRow: {
+  header: {
+    minHeight: 76,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-  },
-
-  headerTextCol: {
-    flex: 1,
-    paddingRight: space.md,
-  },
-
-  brandLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 7,
-  },
-
-  brandMark: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    backgroundColor: mf.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-
-  brandMarkText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.5,
-  },
-
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: mf.accent,
-    letterSpacing: 2,
-    marginBottom: 6,
-  },
-
-  greeting: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: mf.ink,
-    letterSpacing: -0.4,
-  },
-
-  greetingSubtitle: {
-    fontSize: 13,
-    color: mf.inkMuted,
-    marginTop: 3,
-  },
-
-  avatarCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: mf.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  avatarText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-
-  // Account card
-  accountCard: {
-    flexDirection: "row",
-    backgroundColor: mf.surface,
-    borderRadius: radii.md,
+    paddingHorizontal: 24,
     borderWidth: 1,
-    borderColor: mf.border,
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
-    marginTop: space.lg,
+    borderColor: "#E9E0D0",
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
   },
 
-  accountField: {
-    flex: 1,
+  brandContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 
-  accountDivider: {
-    width: 1,
-    backgroundColor: mf.border,
-    marginHorizontal: space.md,
+  wingLogo: {
+    width: 112,
+    height: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 5,
   },
 
-  accountLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: mf.inkFaint,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+  wingLeft: {
+    width: 35,
+    height: 13,
+    backgroundColor: COLORS.navy,
+    transform: [{ skewX: "-25deg" }],
+    marginRight: -9,
   },
 
-  accountValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: mf.ink,
-    marginTop: 3,
+  wingRight: {
+    width: 35,
+    height: 13,
+    backgroundColor: COLORS.navy,
+    transform: [{ skewX: "25deg" }],
+    marginLeft: -9,
   },
 
-  // Hero card
-  heroCard: {
-    backgroundColor: "#FFF8E8",
-    borderRadius: radii.xl,
-    padding: space.xl,
-    marginTop: space.lg,
-    overflow: "hidden",
-    position: "relative",
-    shadowColor: mf.accentDeep,
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.28,
-    shadowRadius: 30,
-    elevation: 8,
+  logoCircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: COLORS.navy,
+    borderWidth: 4,
+    borderColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+    shadowColor: COLORS.gold,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
 
-  heroGlowTop: {
-    position: "absolute",
-    top: -70,
-    right: -55,
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    backgroundColor: "rgba(227, 163, 33, 0.18)",
-  },
-
-  heroGlowBottom: {
-    position: "absolute",
-    bottom: -75,
-    left: -45,
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: "rgba(23, 32, 51, 0.06)",
-  },
-
-  heroTitle: {
+  logoText: {
+    color: COLORS.gold,
     fontSize: 22,
     fontWeight: "900",
-    color: mf.ink,
-    letterSpacing: -0.3,
   },
 
-  heroSubtitle: {
-    fontSize: 14,
-    color: mf.inkMuted,
-    marginTop: 6,
+  brandName: {
+    color: COLORS.navy,
+    fontSize: 21,
+    fontWeight: "900",
+    letterSpacing: 1.3,
   },
 
-  // Car + bike hero visual
-  heroVehicles: {
-    height: 112,
-    marginTop: 12,
-    marginBottom: 4,
-    borderRadius: 20,
-    backgroundColor: "#FFF1C9",
-    position: "relative",
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
+  brandTagline: {
+    color: "#687286",
+    fontSize: 11,
+    marginTop: 2,
   },
 
-  heroCar: {
-    fontSize: 68,
-    marginTop: 5,
-    marginLeft: -36,
-  },
-
-  heroBike: {
-    position: "absolute",
-    right: 26,
-    bottom: 19,
-    fontSize: 43,
-  },
-
-  heroVehicleRoad: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: 15,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: mf.accent,
-    transform: [{ rotate: "-3deg" }],
-  },
-
-  // Decorative road visual
-  roadTrack: {
+  headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: space.xl,
-    marginBottom: space.lg,
+    gap: 12,
   },
 
-  roadNodeStart: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: mf.accent,
-  },
-
-  roadNodeEnd: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: mf.borderStrong,
-    backgroundColor: "transparent",
-  },
-
-  roadDashClip: {
-    flex: 1,
-    height: 2,
-    marginHorizontal: space.sm,
-    overflow: "hidden",
-  },
-
-  roadDashRow: {
-    flexDirection: "row",
-    width: 700,
-    height: 2,
-  },
-
-  roadDash: {
-    width: 16,
-    height: 2,
-    marginRight: 12,
-    backgroundColor: "rgba(23,32,51,0.22)",
-    borderRadius: 1,
-  },
-
-  heroCta: {
-    backgroundColor: mf.ink,
-    borderRadius: radii.md,
-    paddingVertical: 17,
-    paddingHorizontal: space.lg,
+  securePill: {
+    height: 42,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: "#FFF8E7",
+    borderWidth: 1,
+    borderColor: "#EAD9B2",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
 
-  heroCtaText: {
-    color: "#FFFFFF",
+  secureCheck: {
+    color: COLORS.green,
     fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 0.2,
+    fontWeight: "900",
+    marginRight: 5,
   },
 
-  heroCtaArrowWrap: {
-    width: 30,
-    height: 30,
+  secureText: {
+    color: COLORS.navy,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  menuButton: {
+    width: 48,
+    height: 48,
     borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    alignItems: "center",
+    backgroundColor: COLORS.gold,
     justifyContent: "center",
-  },
-
-  heroCtaArrow: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-
-  // Quick actions
-  quickActionsRow: {
-    flexDirection: "row",
-    marginTop: space.lg,
-    gap: space.sm,
-  },
-
-  actionCard: {
-    flex: 1,
-    backgroundColor: mf.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: mf.border,
-    paddingVertical: space.md,
-    paddingHorizontal: space.sm,
     alignItems: "center",
+  },
+
+  menuText: {
+    color: COLORS.white,
+    fontSize: 27,
+    fontWeight: "900",
+  },
+
+  hero: {
+    minHeight: Platform.OS === "web" ? 420 : 480,
+    backgroundColor: COLORS.cream,
+    borderRadius: 30,
+    overflow: "hidden",
     position: "relative",
-  },
-
-  actionCardPressed: {
-    backgroundColor: mf.surfaceAlt,
-  },
-
-  actionIconBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: mf.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: space.sm,
-  },
-
-  actionIconGlyph: {
-    color: mf.accent,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  actionLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: mf.ink,
-    textAlign: "center",
-    lineHeight: 15,
-  },
-
-  soonPill: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: mf.surfaceAlt,
-    borderRadius: radii.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-
-  soonPillText: {
-    fontSize: 8,
-    fontWeight: "800",
-    color: mf.inkFaint,
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-  },
-
-  // Service card
-  serviceCard: {
-    backgroundColor: mf.surface,
-    borderRadius: radii.lg,
+    flexDirection: "row",
     borderWidth: 1,
-    borderColor: mf.border,
-    padding: space.lg,
-    marginTop: space.lg,
+    borderColor: "#EBD9AC",
   },
 
-  serviceCardTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: mf.inkFaint,
-    textTransform: "uppercase",
-    letterSpacing: 1.2,
-    marginBottom: space.md,
-  },
-
-  serviceGrid: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-
-  serviceCell: {
-    flex: 1,
-    alignItems: "center",
-  },
-
-  serviceCellDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: mf.border,
-    marginTop: 6,
-  },
-
-  serviceCellIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: mf.surfaceAlt,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
-  },
-
-  serviceCellIcon: {
-    color: mf.accent,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  serviceCellLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: mf.inkMuted,
-    textAlign: "center",
-  },
-
-  // Location status
-  locationStatusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: space.lg,
-    paddingTop: space.md,
-    borderTopWidth: 1,
-    borderTopColor: mf.border,
-  },
-
-  locationStatusDotWrap: {
-    width: 16,
-    height: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: space.sm,
-  },
-
-  pulseHalo: {
+  heroBgGlow: {
     position: "absolute",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: mf.accentGlowStrong,
+    right: -80,
+    top: 30,
+    width: 620,
+    height: 390,
+    borderRadius: 220,
+    backgroundColor: "#F8E2A8",
   },
 
-  locationStatusDot: {
+  heroLeft: {
+    flex: 0.9,
+    justifyContent: "center",
+    paddingHorizontal: Platform.OS === "web" ? 48 : 24,
+    paddingVertical: 38,
+    zIndex: 3,
+  },
+
+  premiumBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EADDBD",
+    marginBottom: 23,
+  },
+
+  badgeDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: COLORS.gold,
+    marginRight: 8,
   },
 
-  locationStatusDotActive: {
-    backgroundColor: mf.success,
+  badgeText: {
+    color: COLORS.navy,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1.25,
   },
 
-  locationStatusDotError: {
-    backgroundColor: mf.danger,
+  heroTitle: {
+    color: COLORS.navy,
+    fontSize: Platform.OS === "web" ? 48 : 39,
+    lineHeight: Platform.OS === "web" ? 53 : 43,
+    fontWeight: "900",
+    letterSpacing: -1.6,
   },
 
-  locationStatusText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
-    color: mf.inkMuted,
+  heroGoldTitle: {
+    color: COLORS.goldDark,
+    fontSize: Platform.OS === "web" ? 48 : 39,
+    lineHeight: Platform.OS === "web" ? 53 : 43,
+    fontWeight: "900",
+    letterSpacing: -1.6,
   },
 
-  locationStatusTextError: {
-    color: mf.danger,
-  },
-
-  retryLink: {
-    marginLeft: space.sm,
-  },
-
-  retryLinkPressed: {
-    opacity: 0.6,
-  },
-
-  retryLinkText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: mf.accent,
-  },
-
-  // Logout
-  logoutButton: {
-    borderRadius: radii.md,
-    paddingVertical: space.md,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: mf.border,
-    backgroundColor: mf.surface,
-    marginTop: space.xl,
-  },
-
-  logoutButtonPressed: {
-    backgroundColor: mf.surfaceAlt,
-  },
-
-  logoutButtonText: {
-    color: mf.inkMuted,
+  heroSubtitle: {
+    color: "#34415A",
     fontSize: 15,
-    fontWeight: "700",
+    lineHeight: 22,
+    marginTop: 13,
+    marginBottom: 23,
+  },
+
+  featureRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 9,
+  },
+
+  featurePill: {
+    backgroundColor: COLORS.white,
+    borderRadius: 18,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  featureIcon: {
+    color: COLORS.navy,
+    fontSize: 13,
+    fontWeight: "900",
+    marginRight: 5,
+  },
+
+  featureText: {
+    color: COLORS.navy,
+    fontSize: 10,
+    fontWeight: "900",
+  },
+
+  heroCarArea: {
+    flex: 1.25,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  carGlow: {
+    position: "absolute",
+    right: 20,
+    width: "92%",
+    height: 260,
+    borderRadius: 150,
+    backgroundColor: "#F7DFA0",
+  },
+
+  heroCar: {
+    width: "112%",
+    height: Platform.OS === "web" ? 390 : 310,
+    zIndex: 2,
+    marginRight: -35,
+  },
+
+  carBrandPlate: {
+    position: "absolute",
+    top: 25,
+    right: 25,
+    width: 125,
+    height: 57,
+    borderRadius: 17,
+    backgroundColor: COLORS.navy,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
+  },
+
+  carBrandMF: {
+    color: COLORS.gold,
+    fontSize: 17,
+    fontWeight: "900",
+    letterSpacing: 2,
+  },
+
+  carBrandSmall: {
+    color: COLORS.white,
+    fontSize: 7,
+    fontWeight: "900",
+    letterSpacing: 1,
+    marginTop: 3,
+  },
+
+  floatingLogo: {
+    position: "absolute",
+    right: 38,
+    top: 88,
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    backgroundColor: COLORS.gold,
+    borderWidth: 3,
+    borderColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 6,
+  },
+
+  floatingLogoText: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  routeBar: {
+    minHeight: 100,
+    backgroundColor: COLORS.white,
+    borderRadius: 25,
+    marginTop: -2,
+    paddingHorizontal: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: "#E6DDCE",
+    shadowColor: "#000",
+    shadowOpacity: 0.09,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 5 },
+  },
+
+  routeSection: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  greenDotBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#E2F6ED",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 11,
+  },
+
+  greenDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.green,
+  },
+
+  redDotBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#FDE5E4",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 11,
+  },
+
+  redDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.red,
+  },
+
+  routeSmall: {
+    color: "#858B96",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+  },
+
+  routeValue: {
+    color: COLORS.navy,
+    fontSize: 14,
+    fontWeight: "900",
+    marginTop: 4,
+  },
+
+  routeHint: {
+    color: "#7B8491",
+    fontSize: 10,
+    marginTop: 3,
+  },
+
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginTop: 4,
+  },
+
+  routeMiddle: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+  },
+
+  routeLine: {
+    width: 42,
+    height: 1,
+    backgroundColor: "#DDCEB5",
+  },
+
+  swapCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFF1C9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 4,
+  },
+
+  swapText: {
+    color: COLORS.goldDark,
+    fontSize: 19,
+    fontWeight: "900",
+  },
+
+  routeArrow: {
+    width: 56,
+    height: 56,
+    borderRadius: 17,
+    backgroundColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 12,
+  },
+
+  routeArrowText: {
+    color: COLORS.white,
+    fontSize: 28,
+  },
+
+  grid: {
+    marginTop: 18,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+
+  serviceCard: {
+    width: "calc(33.333% - 8px)" as any,
+    minHeight: 142,
+    borderRadius: 22,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#DDD5C7",
+    flexDirection: "row",
+    position: "relative",
+  },
+
+  cardContent: {
+    flex: 1,
+    padding: 18,
+    justifyContent: "center",
+    zIndex: 3,
+  },
+
+  cardLabel: {
+    color: "#667083",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    marginBottom: 7,
+  },
+
+  cardTitle: {
+    color: COLORS.navy,
+    fontSize: 22,
+    fontWeight: "900",
+  },
+
+  cardSubtitle: {
+    color: "#687386",
+    fontSize: 11,
+    marginTop: 4,
+  },
+
+  smallArrow: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 11,
+  },
+
+  smallArrowText: {
+    color: COLORS.navy,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  cardImage: {
+    width: "52%",
+    height: "100%",
+  },
+
+  moreIcons: {
+    width: "48%",
+    padding: 13,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    alignContent: "center",
+    justifyContent: "center",
+  },
+
+  moreIcon: {
+    width: 48,
+    height: 43,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  rewardsCard: {
+    minHeight: 68,
+    marginTop: 13,
+    backgroundColor: COLORS.navy,
+    borderRadius: 19,
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  rewardLogo: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.navy,
+    borderWidth: 3,
+    borderColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  rewardLogoText: {
+    color: COLORS.gold,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  rewardTextBox: {
+    flex: 1,
+    marginLeft: 13,
+  },
+
+  rewardTitle: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+
+  rewardSubtitle: {
+    color: "#AAB2C1",
+    fontSize: 10,
+    marginTop: 3,
+  },
+
+  rewardPoints: {
+    alignItems: "center",
+    marginRight: 15,
+  },
+
+  pointsNumber: {
+    color: COLORS.gold,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+
+  pointsText: {
+    color: "#B8BFCA",
+    fontSize: 7,
+    fontWeight: "900",
+  },
+
+  rewardArrow: {
+    color: COLORS.gold,
+    fontSize: 24,
+  },
+
+  startButton: {
+    height: 62,
+    marginTop: 12,
+    borderRadius: 18,
+    backgroundColor: COLORS.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    shadowColor: COLORS.goldDark,
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+  },
+
+  startButtonText: {
+    color: COLORS.white,
+    fontSize: 17,
+    fontWeight: "900",
+  },
+
+  startArrowBox: {
+    position: "absolute",
+    right: 9,
+    width: 45,
+    height: 45,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.23)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  startArrow: {
+    color: COLORS.white,
+    fontSize: 23,
+  },
+
+  loginRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+
+  loginNormal: {
+    color: "#7B8390",
+    fontSize: 11,
+  },
+
+  loginText: {
+    color: COLORS.goldDark,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  trustRow: {
+    marginTop: 25,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingHorizontal: 6,
+  },
+
+  trustItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  trustCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#E3F4E8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 6,
+  },
+
+  trustCheckText: {
+    color: COLORS.green,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  trustText: {
+    color: "#687181",
+    fontSize: 9,
+  },
+
+  welcomeUser: {
+    textAlign: "center",
+    color: "#A0A5AD",
+    fontSize: 9,
+    marginTop: 18,
   },
 });
+
+export default HomeScreen;

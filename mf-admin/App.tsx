@@ -204,6 +204,26 @@ export default function App() {
   */
   const [otp, setOtp] = useState("");
 
+  const [resendSeconds, setResendSeconds] = useState(0);
+  useEffect(() => {
+    if (authScreen !== "loginOtp" || resendSeconds <= 0) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setResendSeconds((seconds) => {
+        if (seconds <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+
+        return seconds - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [authScreen, resendSeconds]);
+
   /*
   |--------------------------------------------------------------------------
   | RESET PASSWORD
@@ -420,6 +440,7 @@ export default function App() {
       });
 
       setOtp("");
+      setResendSeconds(60);
       setMessage("OTP sent to your admin email.");
       setAuthScreen("loginOtp");
     } catch (err) {
@@ -438,6 +459,39 @@ export default function App() {
   | LOGIN OTP -> DASHBOARD
   |--------------------------------------------------------------------------
   */
+  const handleResendLoginOtp = async () => {
+    if (resendSeconds > 0 || loading) {
+      return;
+    }
+
+    clearMessages();
+
+    if (!email.trim() || !password) {
+      setError("Please go back to login and enter your credentials.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiRequest("/auth/admin/login", {
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      setOtp("");
+      setResendSeconds(60);
+      setMessage("A new OTP has been sent to your admin email.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to resend OTP.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleVerifyLoginOtp = async () => {
     clearMessages();
 
@@ -899,6 +953,8 @@ export default function App() {
         )}
       </Pressable>
 
+      
+
       <View style={styles.backRow}>
         <Text style={styles.createAccountText}>
           Already have an account?
@@ -988,6 +1044,25 @@ export default function App() {
           </>
         )}
       </Pressable>
+
+      {isLoginOtp ? (
+        <View style={styles.resendRow}>
+          {resendSeconds > 0 ? (
+            <Text style={styles.resendDisabledText}>
+              Resend OTP in {resendSeconds}s
+            </Text>
+          ) : (
+            <Pressable
+              onPress={handleResendLoginOtp}
+              disabled={loading}
+            >
+              <Text style={styles.linkText}>
+                Resend OTP
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      ) : null}
 
       <View style={styles.backRow}>
         <Pressable onPress={goToLogin}>
@@ -2550,7 +2625,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
     gap: 5,
   },
+  resendRow: {
+    alignItems: "center",
+    marginTop: 14,
+    marginBottom: 4,
+  },
 
+  resendDisabledText: {
+    color: "#7F8798",
+    fontSize: 12,
+    fontWeight: "600",
+  },
   createAccountText: {
     color: "#747D90",
     fontSize: 11,
