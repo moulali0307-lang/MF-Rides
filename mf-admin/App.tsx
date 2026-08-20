@@ -69,11 +69,31 @@ export default function App() {
   | mf2.png fills the whole browser/app screen.
   | After the intro, the normal admin login appears.
   */
-  const [showIntro, setShowIntro] = useState(true);
-  const introOpacity = useRef(new Animated.Value(1)).current;
-  const introScale = useRef(new Animated.Value(1)).current;
+ const [showIntro, setShowIntro] = useState(() => {
+    if (Platform.OS === "web") {
+      try {
+        return localStorage.getItem("mf_admin_intro_seen") !== "1";
+      } catch {
+        return true;
+      }
+    }
 
-  useEffect(() => {
+    return true;
+  });
+
+  const introOpacity = useRef(
+    new Animated.Value(1),
+  ).current;
+
+  const introScale = useRef(
+    new Animated.Value(1),
+  ).current;
+
+    useEffect(() => {
+    if (!showIntro) {
+      return;
+    }
+
     const timer = setTimeout(() => {
       Animated.parallel([
         Animated.timing(introOpacity, {
@@ -81,16 +101,34 @@ export default function App() {
           duration: 650,
           useNativeDriver: true,
         }),
+
         Animated.timing(introScale, {
           toValue: 1.03,
           duration: 650,
           useNativeDriver: true,
         }),
-      ]).start(() => setShowIntro(false));
+      ]).start(() => {
+        setShowIntro(false);
+
+        if (Platform.OS === "web") {
+          try {
+            localStorage.setItem(
+              "mf_admin_intro_seen",
+              "1",
+            );
+          } catch {
+            // Ignore storage errors.
+          }
+        }
+      });
     }, 2800);
 
     return () => clearTimeout(timer);
-  }, [introOpacity, introScale]);
+  }, [
+    showIntro,
+    introOpacity,
+    introScale,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -101,7 +139,40 @@ export default function App() {
     useState<AuthScreen>("login");
 
   const [dashboardPage, setDashboardPage] =
-    useState<DashboardPage>("Dashboard");
+    useState<DashboardPage>(() => {
+      if (Platform.OS === "web") {
+        try {
+          const savedPage =
+            localStorage.getItem(
+              "mf_admin_dashboard_page",
+            );
+
+          if (savedPage) {
+            return savedPage as DashboardPage;
+          }
+        } catch {
+          // Ignore storage errors.
+        }
+      }
+
+      return "Dashboard";
+    });
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      try {
+        localStorage.setItem(
+          "mf_admin_dashboard_page",
+          dashboardPage,
+        );
+      } catch {
+        // Ignore storage errors.
+      }
+    }
+  }, [dashboardPage]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
 
   /*
   |--------------------------------------------------------------------------
@@ -1104,6 +1175,24 @@ export default function App() {
     { name: "Support", icon: "?" },
   ];
 
+    const handleDashboardSearch = (value: string) => {
+    setSearchQuery(value);
+
+    const query = value.trim().toLowerCase();
+
+    if (!query) {
+      return;
+    }
+
+    const matchedItem = navItems.find((item) =>
+      item.name.toLowerCase().includes(query)
+    );
+
+    if (matchedItem) {
+      setDashboardPage(matchedItem.name);
+    }
+  };
+
   const renderMetricCard = (
     icon: string,
     label: string,
@@ -1855,53 +1944,91 @@ export default function App() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.topBar}>
-          <View>
-            <Text style={styles.topBarSmall}>
-              MF-RIDES ADMIN
-            </Text>
-            <Text style={styles.topBarTitle}>
-              {dashboardPage}
-            </Text>
-          </View>
+        <View style={styles.topBarRight}>
+  <View style={styles.searchBox}>
+    <Text style={styles.searchIcon}>
+      ⌕
+    </Text>
 
-          <View style={styles.topBarRight}>
-            <View style={styles.searchBox}>
-              <Text style={styles.searchIcon}>
-                ⌕
-              </Text>
-              <Text style={styles.searchText}>
-                Search here...
-              </Text>
-            </View>
+    <Text style={styles.searchText}>
+      Search here...
+    </Text>
+  </View>
 
-            <View style={styles.notification}>
-              <Text style={styles.notificationText}>
-                ♧
-              </Text>
-              <View style={styles.notificationDot} />
-            </View>
+  <View style={styles.notification}>
+    <Text style={styles.notificationText}>
+      ♧
+    </Text>
 
-            <View style={styles.topAvatar}>
-              <Text style={styles.topAvatarText}>
-                A
-              </Text>
-            </View>
+    <View style={styles.notificationDot} />
+  </View>
 
-            <Text style={styles.topAdminText}>
-              Admin ▾
-            </Text>
+  <Pressable
+    onPress={() => {
+      setAdminMenuOpen(true);
+    }}
+    style={styles.adminProfileButton}
+  >
+    <View style={styles.topAvatar}>
+      <Text style={styles.topAvatarText}>
+        A
+      </Text>
+    </View>
 
-            <Pressable
-              onPress={handleLogout}
-              style={styles.topLogout}
-            >
-              <Text style={styles.topLogoutText}>
-                LOGOUT
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+    <Text style={styles.topAdminText}>
+      {adminMenuOpen ? "Admin ▲" : "Admin ▼"}
+    </Text>
+  </Pressable>
+
+  {adminMenuOpen && (
+    <View style={styles.adminDropdown}>
+      <Pressable
+        style={styles.adminDropdownItem}
+        onPress={() => {
+          setAdminMenuOpen(false);
+          
+        }}
+      >
+        <Text style={styles.adminDropdownText}>
+          Profile
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.adminDropdownItem}
+        onPress={() => {
+          setAdminMenuOpen(false);
+          setDashboardPage("Settings");
+        }}
+      >
+        <Text style={styles.adminDropdownText}>
+          Settings
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.adminDropdownItem}
+        onPress={() => {
+          setAdminMenuOpen(false);
+          handleLogout();
+        }}
+      >
+        <Text style={styles.adminDropdownLogout}>
+          Logout
+        </Text>
+      </Pressable>
+    </View>
+  )}
+
+  <Pressable
+    onPress={handleLogout}
+    style={styles.topLogout}
+  >
+    <Text style={styles.topLogoutText}>
+      LOGOUT
+    </Text>
+  </Pressable>
+</View>
 
         {dashboardPage === "Dashboard" ? (
           <>
@@ -2703,6 +2830,14 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
 
+  searchInput: {
+  flex: 1,
+  color: "#E8ECF4",
+  fontSize: 9,
+  paddingVertical: 0,
+  paddingHorizontal: 0,
+  },
+
   notification: {
     width: 33,
     height: 33,
@@ -2744,7 +2879,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
+  adminProfileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  adminDropdown: {
+    position: "absolute",
+    top: 42,
+    right: 45,
+    width: 130,
+    backgroundColor: "#0B111E",
+    borderWidth: 1,
+    borderColor: "#1B2639",
+    borderRadius: 8,
+    paddingVertical: 5,
+    zIndex: 1000,
+    elevation: 10,
+  },
 
+  adminDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+
+ adminDropdownText: {
+   color: "#E8ECF4",
+   fontSize: 9,
+   fontWeight: "700",
+},
+
+ adminDropdownLogout: {
+   color: "#E9A91A",
+   fontSize: 9,
+   fontWeight: "700",
+ },
   topAdminText: {
     color: "#A5AEBE",
     fontSize: 10,

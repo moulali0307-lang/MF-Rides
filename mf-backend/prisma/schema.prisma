@@ -21,14 +21,20 @@ enum RideStatus {
   CANCELLED
 }
 
+enum AdminOtpPurpose {
+  LOGIN
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
 model User {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   fullName     String
-  phoneNumber  String   @unique
-  email        String?  @unique
+  phoneNumber  String  @unique
+  email        String? @unique
   passwordHash String
-  role         Role     @default(RIDER)
-  isOnline     Boolean  @default(false)
+  role         Role    @default(RIDER)
+  isOnline     Boolean @default(false)
 
   // MF Gold wallet
   goldBalance Decimal @default(0) @db.Decimal(12, 2)
@@ -36,8 +42,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Rider / Partner rides
   ridesAsPassenger Ride[] @relation("PassengerRides")
   ridesAsRider     Ride[] @relation("RiderRides")
+
+  // Admin security
+  adminOtps     AdminOtp[]
+  adminPasskeys AdminPasskey[]
+  adminSessions AdminSession[]
 
   @@map("users")
 }
@@ -76,7 +88,7 @@ model Ride {
   completedAt DateTime?
   cancelledAt DateTime?
 
-  cancelledBy       String?
+  cancelledBy        String?
   cancellationReason String?
 
   createdAt DateTime @default(now())
@@ -86,4 +98,78 @@ model Ride {
   @@index([riderId])
   @@index([passengerId])
   @@map("rides")
+}
+
+model AdminOtp {
+  id String @id @default(uuid())
+
+  userId String
+
+  purpose AdminOtpPurpose
+
+  // Hashed OTP — actual OTP will never be stored
+  codeHash String
+
+  // Security
+  attempts Int @default(0)
+
+  // OTP validity
+  expiresAt DateTime
+
+  // Becomes non-null after successful verification
+  usedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("admin_otps")
+}
+
+model AdminPasskey {
+  id String @id @default(uuid())
+
+  userId String
+
+  // WebAuthn credential
+  credentialId String @unique
+  publicKey    String
+
+  // WebAuthn signature counter
+  counter Int @default(0)
+
+  // Optional device information
+  transports String?
+  deviceName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("admin_passkeys")
+}
+
+model AdminSession {
+  id String @id @default(uuid())
+
+  userId String
+
+  // Hashed session token
+  tokenHash String @unique
+
+  expiresAt DateTime
+
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
 }

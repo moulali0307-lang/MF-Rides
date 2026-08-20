@@ -5,6 +5,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -1301,7 +1302,18 @@ async function restoreActiveRide() {
 
             <View style={styles.locationInputBox}>
               <TextInput
-                style={styles.locationInput}
+                style={[
+                  styles.locationInput,
+                  Platform.OS === "web"
+                    ? ({
+                        outline: "none",
+                        outlineStyle: "none",
+                        outlineWidth: 0,
+                        borderWidth: 0,
+                        boxShadow: "none",
+                      } as any)
+                    : null,
+                ]}
                 placeholder="Search pickup location"
                 placeholderTextColor={mfTheme.muted}
                 value={pickupAddress}
@@ -1362,7 +1374,18 @@ async function restoreActiveRide() {
 
             <View style={styles.locationInputBox}>
               <TextInput
-                style={styles.locationInput}
+                style={[
+                  styles.locationInput,
+                  Platform.OS === "web"
+                    ? ({
+                        outline: "none",
+                        outlineStyle: "none",
+                        outlineWidth: 0,
+                        borderWidth: 0,
+                        boxShadow: "none",
+                      } as any)
+                    : null,
+                ]}
                 placeholder="Where do you want to go?"
                 placeholderTextColor={mfTheme.muted}
                 value={destinationAddress}
@@ -1377,7 +1400,7 @@ async function restoreActiveRide() {
                   color={mfTheme.gold}
                 />
               ) : null}
-            </View>
+            </View>   
 
             {destinationSuggestions.length > 0 ? (
               <PlaceSuggestions
