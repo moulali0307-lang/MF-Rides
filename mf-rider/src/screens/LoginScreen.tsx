@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,15 +11,19 @@ import {
   TextInput,
   View,
 } from "react-native";
+
 import { ApiError, useAuth } from "../context/AuthContext";
-import { colors, radius, spacing } from "../theme/colors";
-import { FormField } from "./FormField";
+import { colors } from "../theme/colors";
 
 interface Props {
   onGoToRegister: () => void;
+  onLoginSuccess: () => void;
 }
 
-export function LoginScreen({ onGoToRegister }: Props) {
+export function LoginScreen({
+  onGoToRegister,
+  onLoginSuccess,
+}: Props) {
   const { login, isSubmitting } = useAuth();
 
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -37,12 +42,16 @@ export function LoginScreen({ onGoToRegister }: Props) {
     const cleanPhone = phoneNumber.trim();
 
     if (!cleanPhone || !password) {
-      setErrorMessage("Please enter your phone number and password.");
+      setErrorMessage(
+        "Please enter your phone number and password."
+      );
       return;
     }
 
     if (cleanPhone.length !== 10) {
-      setErrorMessage("Please enter a valid 10-digit mobile number.");
+      setErrorMessage(
+        "Please enter a valid 10-digit mobile number."
+      );
       return;
     }
 
@@ -51,202 +60,265 @@ export function LoginScreen({ onGoToRegister }: Props) {
         phoneNumber: `+91${cleanPhone}`,
         password,
       });
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setErrorMessage(err.message);
+
+      // Login successful
+      onLoginSuccess();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message);
       } else {
-        setErrorMessage("Something went wrong. Please try again.");
+        setErrorMessage("Login failed. Please try again.");
       }
     }
   }
 
-  function handleOtpLogin() {
-    setErrorMessage(
-      "OTP login will be connected in the next step."
-    );
-  }
-
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={styles.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Decorative background */}
-        <View style={styles.backgroundCircleOne} />
-        <View style={styles.backgroundCircleTwo} />
+        <View style={styles.page}>
 
-        {/* BRAND */}
-        <View style={styles.brandSection}>
-          <View style={styles.logoBox}>
-            <Text style={styles.logoText}>MF</Text>
-          </View>
+          {/* =========================
+              LEFT BRAND PANEL
+          ========================== */}
 
-          <Text style={styles.brandText}>MF-RIDES</Text>
+          <View style={styles.leftPanel}>
 
-          <Text style={styles.brandTagline}>
-            Smart rides. Simple journeys.
-          </Text>
-        </View>
-
-        {/* LOGIN CARD */}
-        <View style={styles.card}>
-          <Text style={styles.welcomeTitle}>
-            Welcome back 👋
-          </Text>
-
-          <Text style={styles.welcomeSubtitle}>
-            Log in to continue with MF Rides.
-          </Text>
-
-          {errorMessage ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorText}>
-                {errorMessage}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* PHONE */}
-          <Text style={styles.fieldLabel}>
-            Phone number
-          </Text>
-
-          <View style={styles.phoneInputWrapper}>
-            <View style={styles.countryCodeBox}>
-              <Text style={styles.countryCode}>+91</Text>
+            <View style={styles.logoCircle}>
+              <Image
+                source={require("../assets/mf3.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
 
-            <View style={styles.phoneDivider} />
-
-            <TextInput
-              style={styles.phoneInput}
-              placeholder="Enter 10-digit number"
-              placeholderTextColor={colors.textMuted}
-              value={phoneNumber}
-              onChangeText={handlePhoneChange}
-              keyboardType={
-                Platform.OS === "web"
-                  ? "numeric"
-                  : "number-pad"
-              }
-              inputMode="numeric"
-              maxLength={10}
-              autoComplete="tel"
-              editable={!isSubmitting}
-            />
-          </View>
-
-          {/* PASSWORD */}
-          <View style={styles.passwordHeader}>
-            <Text style={styles.fieldLabel}>
-              Password
+            <Text style={styles.leftTitle}>
+              MF RIDES
             </Text>
 
-            <Pressable
-              onPress={() =>
-                setErrorMessage(
-                  "Password recovery will be added next."
-                )
-              }
-            >
-              <Text style={styles.forgotText}>
-                Forgot password?
-              </Text>
-            </Pressable>
-          </View>
+            <Text style={styles.leftHighlight}>
+              Unlimited
+            </Text>
 
-          <FormField
-            label=""
-            placeholder="Enter your password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-          />
+            <Text style={styles.leftTitle}>
+              journeys.
+            </Text>
 
-          {/* LOGIN */}
-          <Pressable
-            style={[
-              styles.primaryButton,
-              isSubmitting && styles.disabledButton,
-            ]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <View style={styles.buttonContent}>
-                <Text style={styles.primaryButtonText}>
-                  Log in
-                </Text>
+            <Text style={styles.leftDescription}>
+              Ride, travel and explore with MF Rides.
+              {"\n"}
+              One app for your everyday journeys.
+            </Text>
 
-                <Text style={styles.arrow}>
-                  →
+            <View style={styles.featureRow}>
+
+              <View style={styles.feature}>
+                <Text style={styles.featureIcon}>✓</Text>
+                <Text style={styles.featureText}>
+                  Safe Rides
                 </Text>
               </View>
-            )}
-          </Pressable>
 
-          {/* DIVIDER */}
-          <View style={styles.dividerRow}>
-            <View style={styles.divider} />
-            <Text style={styles.orText}>OR</Text>
-            <View style={styles.divider} />
+              <View style={styles.feature}>
+                <Text style={styles.featureIcon}>✓</Text>
+                <Text style={styles.featureText}>
+                  Easy Booking
+                </Text>
+              </View>
+
+              <View style={styles.feature}>
+                <Text style={styles.featureIcon}>✓</Text>
+                <Text style={styles.featureText}>
+                  Secure Payments
+                </Text>
+              </View>
+
+            </View>
+
+            <Text style={styles.tagline}>
+              RIDE • TRAVEL • EXPLORE
+            </Text>
+
           </View>
 
-          {/* OTP */}
-          <Pressable
-            style={styles.otpButton}
-            onPress={handleOtpLogin}
-            disabled={isSubmitting}
-          >
-            <View style={styles.otpIcon}>
-              <Text style={styles.otpIconText}>✦</Text>
-            </View>
+          {/* =========================
+              RIGHT LOGIN PANEL
+          ========================== */}
 
-            <View style={styles.otpTextBox}>
-              <Text style={styles.otpTitle}>
-                Continue with OTP
+          <View style={styles.rightPanel}>
+
+            <View style={styles.loginHeader}>
+
+              <Text style={styles.loginEyebrow}>
+                WELCOME BACK
               </Text>
 
-              <Text style={styles.otpSubtitle}>
-                Secure login with a verification code
+              <Text style={styles.loginTitle}>
+                Login to MF Rides
               </Text>
+
+              <Text style={styles.loginSubtitle}>
+                Enter your details to continue your journey.
+              </Text>
+
             </View>
 
-            <Text style={styles.otpArrow}>›</Text>
-          </Pressable>
-        </View>
+            {/* ERROR */}
 
-        {/* REGISTER */}
-        <View style={styles.registerSection}>
-          <Text style={styles.registerText}>
-            New to MF Rides?{" "}
-          </Text>
+            {errorMessage ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>
+                  {errorMessage}
+                </Text>
+              </View>
+            ) : null}
 
-          <Pressable
-            onPress={onGoToRegister}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.registerLink}>
-              Create an account
+            {/* PHONE */}
+
+            <Text style={styles.label}>
+              Mobile number
             </Text>
-          </Pressable>
-        </View>
 
-        {/* SECURITY */}
-        <View style={styles.securityRow}>
-          <Text style={styles.securityIcon}>🔒</Text>
+            <View style={styles.phoneBox}>
 
-          <Text style={styles.securityText}>
-            Your account is protected with secure verification
-          </Text>
+              <Text style={styles.countryCode}>
+                +91
+              </Text>
+
+              <View style={styles.divider} />
+
+              <TextInput
+                style={styles.phoneInput}
+                placeholder="Enter 10-digit mobile number"
+                placeholderTextColor="#999999"
+                value={phoneNumber}
+                onChangeText={handlePhoneChange}
+                keyboardType={
+                  Platform.OS === "web"
+                    ? "numeric"
+                    : "number-pad"
+                }
+                inputMode="numeric"
+                maxLength={10}
+                editable={!isSubmitting}
+              />
+
+            </View>
+
+            {/* PASSWORD */}
+
+            <View style={styles.passwordHeader}>
+
+              <Text style={styles.label}>
+                Password
+              </Text>
+
+              <Pressable
+                onPress={() =>
+                  setErrorMessage(
+                    "Password recovery will be added next."
+                  )
+                }
+              >
+                <Text style={styles.forgot}>
+                  Forgot password?
+                </Text>
+              </Pressable>
+
+            </View>
+
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Enter your password"
+              placeholderTextColor="#999999"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setErrorMessage(null);
+              }}
+              secureTextEntry
+              editable={!isSubmitting}
+              autoComplete="password"
+            />
+
+            {/* LOGIN BUTTON */}
+
+            <Pressable
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+              style={({ pressed }) => [
+                styles.loginButton,
+                pressed && styles.buttonPressed,
+                isSubmitting && styles.disabled,
+              ]}
+            >
+
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={styles.loginButtonText}>
+                    Login
+                  </Text>
+
+                  <Text style={styles.loginArrow}>
+                    →
+                  </Text>
+                </>
+              )}
+
+            </Pressable>
+
+            {/* REGISTER */}
+
+            <View style={styles.registerRow}>
+
+              <Text style={styles.registerText}>
+                Don't have an account?
+              </Text>
+
+              <Pressable
+                onPress={onGoToRegister}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.registerLink}>
+                  Create account
+                </Text>
+              </Pressable>
+
+            </View>
+
+            {/* SECURITY */}
+
+            <View style={styles.securityBox}>
+
+              <Text style={styles.securityIcon}>
+                🔒
+              </Text>
+
+              <View style={{ flex: 1 }}>
+
+                <Text style={styles.securityTitle}>
+                  Secure Login
+                </Text>
+
+                <Text style={styles.securityText}>
+                  Your account information is protected
+                  with secure authentication.
+                </Text>
+
+              </View>
+
+            </View>
+
+          </View>
+
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -254,303 +326,276 @@ export function LoginScreen({ onGoToRegister }: Props) {
 }
 
 const styles = StyleSheet.create({
-  flex: {
+  screen: {
     flex: 1,
-    backgroundColor: "#FFFCF5",
+    backgroundColor: "#F8F5EE",
   },
 
-  scrollContent: {
+  scroll: {
     flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: 42,
-    paddingBottom: 30,
-    position: "relative",
   },
 
-  backgroundCircleOne: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: "rgba(227, 163, 33, 0.12)",
-    top: -90,
-    right: -80,
+  page: {
+    flex: 1,
+    minHeight: 700,
+    width: "100%",
+    maxWidth: 1200,
+    alignSelf: "center",
+    padding: 24,
+    flexDirection: "row",
+    gap: 24,
   },
 
-  backgroundCircleTwo: {
-    position: "absolute",
+  /* =========================
+     LEFT PANEL
+  ========================== */
+
+  leftPanel: {
+    flex: 1,
+    minHeight: 650,
+    borderRadius: 30,
+    backgroundColor: "#FFF0C9",
+    padding: 42,
+    justifyContent: "center",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E8D8B7",
+  },
+
+  logoCircle: {
     width: 150,
     height: 150,
-    borderRadius: 75,
-    backgroundColor: "rgba(227, 163, 33, 0.07)",
-    bottom: 120,
-    left: -90,
-  },
-
-  brandSection: {
-    alignItems: "center",
-    marginBottom: 28,
-  },
-
-  logoBox: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
-    backgroundColor: "#E3A321",
+    borderRadius: 32,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
-    shadowColor: "#C88A1D",
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 5,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: "#E7A321",
+    overflow: "hidden",
   },
 
-  logoText: {
-    color: colors.white,
-    fontSize: 22,
+  logo: {
+    width: 138,
+    height: 138,
+  },
+
+  leftTitle: {
+    color: "#151A2B",
+    fontSize: 46,
+    lineHeight: 48,
     fontWeight: "900",
-    letterSpacing: 1,
   },
 
-  brandText: {
-    color: "#C88A1D",
-    fontSize: 13,
+  leftHighlight: {
+    color: "#D99812",
+    fontSize: 46,
+    lineHeight: 48,
+    fontWeight: "900",
+  },
+
+  leftDescription: {
+    maxWidth: 430,
+    marginTop: 18,
+    color: "#686A72",
+    fontSize: 15,
+    lineHeight: 23,
+  },
+
+  featureRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 28,
+  },
+
+  feature: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+
+  featureIcon: {
+    color: "#E3A321",
+    fontWeight: "900",
+    marginRight: 6,
+  },
+
+  featureText: {
+    color: "#171B2A",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  tagline: {
+    marginTop: 38,
+    color: "#8C6A25",
+    fontSize: 11,
     fontWeight: "900",
     letterSpacing: 3,
   },
 
-  brandTagline: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 5,
-  },
+  /* =========================
+     RIGHT PANEL
+  ========================== */
 
-  card: {
+  rightPanel: {
+    flex: 0.82,
+    minHeight: 650,
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 22,
+    borderRadius: 30,
+    padding: 42,
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#E8DFD0",
-
-    shadowColor: "#1B2140",
-    shadowOffset: {
-      width: 0,
-      height: 12,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 4,
+    borderColor: "#E6DED1",
   },
 
-  welcomeTitle: {
-    color: "#171B2A",
-    fontSize: 25,
-    fontWeight: "800",
-    marginBottom: 5,
+  loginHeader: {
+    marginBottom: 28,
   },
 
-  welcomeSubtitle: {
-    color: "#7A7C84",
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 22,
-  },
-
-  errorBanner: {
-    backgroundColor: colors.dangerMuted,
-    borderRadius: radius.md,
-    padding: spacing.sm + 4,
-    marginBottom: spacing.md,
-  },
-
-  errorText: {
-    color: colors.danger,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#171B2A",
+  loginEyebrow: {
+    color: "#D99812",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 2,
     marginBottom: 7,
   },
 
-  phoneInputWrapper: {
-    minHeight: 54,
-    backgroundColor: "#FFFEFA",
+  loginTitle: {
+    color: "#171B2A",
+    fontSize: 31,
+    fontWeight: "900",
+  },
+
+  loginSubtitle: {
+    marginTop: 8,
+    color: "#777982",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
+  errorBox: {
+    backgroundColor: "#FDECEC",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 18,
+  },
+
+  errorText: {
+    color: "#C0392B",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  label: {
+    color: "#171B2A",
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 7,
+  },
+
+  phoneBox: {
+    height: 56,
     borderWidth: 1,
-    borderColor: "#E8DFD0",
-    borderRadius: 16,
+    borderColor: "#E2DACD",
+    borderRadius: 15,
+    backgroundColor: "#FFFEFB",
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 17,
+    marginBottom: 18,
     overflow: "hidden",
   },
 
-  countryCodeBox: {
-    paddingLeft: 14,
-    paddingRight: 11,
-    justifyContent: "center",
-  },
-
   countryCode: {
-    fontSize: 14,
-    fontWeight: "800",
+    paddingHorizontal: 15,
     color: "#171B2A",
+    fontSize: 14,
+    fontWeight: "900",
   },
 
-  phoneDivider: {
+  divider: {
     width: 1,
-    height: 27,
-    backgroundColor: "#E8DFD0",
+    height: 28,
+    backgroundColor: "#E2DACD",
   },
 
   phoneInput: {
     flex: 1,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontWeight: "600",
+    height: "100%",
+    paddingHorizontal: 14,
     color: "#171B2A",
-    backgroundColor: "transparent",
-    borderWidth: 0,
-    outlineStyle: "solid",
-    outlineWidth: 0,
-    outlineColor: "transparent",
+    fontSize: 14,
   },
 
   passwordHeader: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
   },
 
-  forgotText: {
+  forgot: {
     color: "#C88A1D",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "800",
     marginBottom: 7,
   },
 
-  primaryButton: {
+  passwordInput: {
+    height: 56,
+    borderWidth: 1,
+    borderColor: "#E2DACD",
+    borderRadius: 15,
+    backgroundColor: "#FFFEFB",
+    paddingHorizontal: 15,
+    color: "#171B2A",
+    fontSize: 14,
+    marginBottom: 20,
+  },
+
+  loginButton: {
+    height: 58,
+    borderRadius: 17,
     backgroundColor: "#E3A321",
-    borderRadius: 18,
-    minHeight: 58,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
+    flexDirection: "row",
     shadowColor: "#C88A1D",
     shadowOffset: {
       width: 0,
       height: 6,
     },
-    shadowOpacity: 0.20,
-    shadowRadius: 12,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
     elevation: 4,
   },
 
-  disabledButton: {
+  buttonPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.99 }],
+  },
+
+  disabled: {
     opacity: 0.6,
   },
 
-  buttonContent: {
-    width: "100%",
-    paddingHorizontal: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  primaryButtonText: {
-    color: colors.white,
+  loginButtonText: {
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "900",
   },
 
-  arrow: {
+  loginArrow: {
     position: "absolute",
     right: 18,
-    color: colors.white,
-    fontSize: 21,
-    fontWeight: "400",
+    color: "#FFFFFF",
+    fontSize: 22,
   },
 
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E8DFD0",
-  },
-
-  orText: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: "800",
-    marginHorizontal: 12,
-  },
-
-  otpButton: {
-    minHeight: 62,
-    borderWidth: 1,
-    borderColor: "#E8DFD0",
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 13,
-  },
-
-  otpIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "#FFF1CC",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  otpIconText: {
-    color: "#C88A1D",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  otpTextBox: {
-    flex: 1,
-    marginLeft: 11,
-  },
-
-  otpTitle: {
-    color: "#171B2A",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-
-  otpSubtitle: {
-    color: colors.textMuted,
-    fontSize: 10,
-    marginTop: 3,
-  },
-
-  otpArrow: {
-    color: "#C88A1D",
-    fontSize: 25,
-    fontWeight: "300",
-    paddingLeft: 8,
-  },
-
-  registerSection: {
+  registerRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -558,32 +603,41 @@ const styles = StyleSheet.create({
   },
 
   registerText: {
-    color: "#7A7C84",
-    fontSize: 13,
+    color: "#777982",
+    fontSize: 12,
   },
 
   registerLink: {
     color: "#C88A1D",
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 12,
+    fontWeight: "900",
+    marginLeft: 5,
   },
 
-  securityRow: {
+  securityBox: {
+    marginTop: 28,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: "#F8F6F0",
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    marginTop: 18,
-    paddingHorizontal: 15,
   },
 
   securityIcon: {
+    fontSize: 19,
+    marginRight: 10,
+  },
+
+  securityTitle: {
+    color: "#171B2A",
     fontSize: 11,
-    marginRight: 6,
+    fontWeight: "900",
   },
 
   securityText: {
-    color: "#7A7C84",
+    marginTop: 3,
+    color: "#888A91",
     fontSize: 10,
-    textAlign: "center",
+    lineHeight: 15,
   },
 });

@@ -41,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // Saved token is missing, expired, or invalid — clear it and fall back to logged-out.
         await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
+        setToken(null);
+        setUser(null);
       } finally {
         if (!cancelled) setIsRestoring(false);
       }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  ImageBackground,
   Platform,
   Pressable,
   ScrollView,
@@ -14,39 +15,52 @@ import { useAuth } from "../context/AuthContext";
 
 interface HomeScreenProps {
   onBookRide: () => void;
+  onMoreServices?: () => void;
+  onMenu?: () => void;
 }
 
 const COLORS = {
-  bg: "#FBF7EF",
-  cream: "#FFF1CF",
-  cream2: "#F5DEAA",
-  gold: "#E8A20A",
-  goldDark: "#C88400",
-  navy: "#101B2E",
+  bg: "#F8F6F1",
   white: "#FFFFFF",
-  green: "#159A62",
-  red: "#E94B43",
-  bus: "#E0F5F3",
-  train: "#E8ECFF",
-  pink: "#FCE6E6",
-  recharge: "#EAF5DD",
-  more: "#F3E9D8",
+  cream: "#FFF2D3",
+  creamStrong: "#F9D987",
+  gold: "#E7A400",
+  goldDark: "#B97800",
+  navy: "#0C172A",
+  text: "#152238",
+  muted: "#717A89",
+  line: "#E7E0D4",
+  green: "#159A63",
+  red: "#E64C4C",
+  auto: "#FFF0C9",
+  bike: "#E5F5F2",
+  car: "#E9ECFF",
+  pink: "#FCE8E7",
+  recharge: "#ECF6DE",
+  more: "#F1E8D9",
 };
 
-const IMAGES = {
-  car: "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1500&q=90",
-  bus: "https://images.unsplash.com/photo-1570125909232-eb263c188f7a?auto=format&fit=crop&w=900&q=90",
-  train: "https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=900&q=90",
-  movie: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=90",
-  recharge:
-    "https://images.unsplash.com/photo-1609592424830-7e4e8f8f1c16?auto=format&fit=crop&w=900&q=90",
-};
+const AUTO_IMAGE = require("../assets/mf-auto.png");
+const BIKE_IMAGE = require("../assets/mf-bike.png");
+const CAR_IMAGE = require("../assets/mf-car.png");
+const MF_LOGO = require("../assets/mf1.png");
+const HERO_IMAGE = require("../assets/mf2.png");
 
-export function HomeScreen({ onBookRide }: HomeScreenProps) {
+export function HomeScreen({
+  onBookRide,
+  onMoreServices,
+  onMenu,
+}: HomeScreenProps) {
   const { user } = useAuth();
 
-  const [locationLabel, setLocationLabel] = useState("Current location");
-  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationLabel, setLocationLabel] =
+    useState("Current location");
+
+  const [locationLoading, setLocationLoading] =
+    useState(true);
+
+  const [showMoreServices, setShowMoreServices] =
+    useState(false);
 
   useEffect(() => {
     detectCurrentLocation();
@@ -64,23 +78,26 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
         return;
       }
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      const position =
+        await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
 
-      const result = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
+      const result =
+        await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
 
       if (result.length > 0) {
         const place = result[0];
+
         setLocationLabel(
           place.city ||
             place.district ||
             place.subregion ||
             place.region ||
-            "Current location"
+            "Current location",
         );
       }
     } catch (error) {
@@ -91,307 +108,761 @@ export function HomeScreen({ onBookRide }: HomeScreenProps) {
     }
   };
 
-  const displayName = user?.email?.split("@")[0] || "MF Rider";
+  const displayName =
+    user?.fullName ||
+    user?.email?.split("@")[0] ||
+    "MF Rider";
+
+  const openService = (service: string) => {
+    console.log(`Opening ${service} service`);
+
+    // Temporary service action.
+    // Later we will connect these to real booking screens/APIs.
+    alert(`${service} booking will open here.`);
+  };
 
   return (
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scroll}
       >
-        {/* HEADER */}
+
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
+
         <View style={styles.header}>
-          <View style={styles.brandContainer}>
-            <View style={styles.wingLogo}>
-              <View style={styles.wingLeft} />
-              <View style={styles.logoCircle}>
-                <Text style={styles.logoText}>MF</Text>
-              </View>
-              <View style={styles.wingRight} />
+          <View style={styles.brand}>
+            <View style={styles.logoWrap}>
+              <Image
+                source={MF_LOGO}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
 
             <View>
-              <Text style={styles.brandName}>MF-RIDES</Text>
-              <Text style={styles.brandTagline}>Ride. Travel. Explore.</Text>
+              <Text style={styles.brandName}>
+                MF RIDES
+              </Text>
+
+              <Text style={styles.brandTagline}>
+                Ride. Travel. Explore.
+              </Text>
             </View>
           </View>
 
           <View style={styles.headerRight}>
-            <View style={styles.securePill}>
-              <Text style={styles.secureCheck}>✓</Text>
-              <Text style={styles.secureText}>100% Secure</Text>
-            </View>
 
-            <Pressable style={styles.menuButton}>
-              <Text style={styles.menuText}>☰</Text>
+            <Pressable style={styles.offers}>
+              <Text style={styles.offersIcon}>
+                ✦
+              </Text>
+
+              <Text style={styles.offersText}>
+                Offers
+              </Text>
             </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.menu,
+                pressed && {
+                  opacity: 0.8,
+                  transform: [{ scale: 0.96 }],
+                },
+              ]}
+              onPress={onMenu}
+            >
+              <Text style={styles.menuText}>
+                ☰
+              </Text>
+            </Pressable>
+
           </View>
         </View>
 
-        {/* HERO */}
-        <View style={styles.hero}>
-          <View style={styles.heroBgGlow} />
 
-          <View style={styles.heroLeft}>
-            <View style={styles.premiumBadge}>
+        {/* =====================================================
+            HERO
+        ===================================================== */}
+
+        <View style={styles.hero}>
+
+          <View style={styles.heroCopy}>
+
+            <View style={styles.badge}>
               <View style={styles.badgeDot} />
-              <Text style={styles.badgeText}>PREMIUM RIDE SERVICE</Text>
+
+              <Text style={styles.badgeText}>
+                PREMIUM RIDE SERVICE
+              </Text>
             </View>
 
-            <Text style={styles.heroTitle}>MF RIDES</Text>
-            <Text style={styles.heroGoldTitle}>Unlimited</Text>
-            <Text style={styles.heroTitle}>journeys.</Text>
+            <Text style={styles.heroTitle}>
+              MF RIDES
+            </Text>
 
-            <Text style={styles.heroSubtitle}>
+            <Text style={styles.heroGold}>
+              Unlimited
+            </Text>
+
+            <Text style={styles.heroTitle}>
+              journeys.
+            </Text>
+
+            <Text style={styles.heroSub}>
               From daily rides to long journeys,
-              {"\n"}we&apos;ve got you covered.
+              {"\n"}
+              we've got you covered.
             </Text>
 
             <View style={styles.featureRow}>
-              <View style={styles.featurePill}>
-                <Text style={styles.featureIcon}>✓</Text>
-                <Text style={styles.featureText}>Safe &amp; Secure</Text>
-              </View>
 
-              <View style={styles.featurePill}>
-                <Text style={styles.featureIcon}>⚡</Text>
-                <Text style={styles.featureText}>Quick &amp; Reliable</Text>
-              </View>
+              <Feature
+                text="Safe & Secure"
+                icon="✓"
+              />
 
-              <View style={styles.featurePill}>
-                <Text style={styles.featureIcon}>♙</Text>
-                <Text style={styles.featureText}>Verified Partners</Text>
-              </View>
+              <Feature
+                text="Quick & Reliable"
+                icon="⚡"
+              />
+
+              <Feature
+                text="Verified Partners"
+                icon="●"
+              />
+
             </View>
           </View>
 
-          <View style={styles.heroCarArea}>
-            <View style={styles.carGlow} />
+
+          {/* HERO IMAGE */}
+
+          <View style={styles.heroVisual}>
 
             <Image
-              source={{ uri: IMAGES.car }}
-              style={styles.heroCar}
+              source={HERO_IMAGE}
               resizeMode="contain"
+              style={{
+                width: "100%",
+                height: "100%",
+              }}
             />
 
-            {/* MF branding */}
-            <View style={styles.carBrandPlate}>
-              <Text style={styles.carBrandMF}>MF</Text>
-              <Text style={styles.carBrandSmall}>RIDE WITH STYLE</Text>
+            <View style={styles.heroBrandPlate}>
+
+              <Image
+                source={MF_LOGO}
+                style={styles.heroBrandLogo}
+                resizeMode="contain"
+              />
+
+              <View>
+                <Text style={styles.heroBrandName}>
+                  MF RIDES
+                </Text>
+
+                <Text style={styles.heroBrandSmall}>
+                  RIDE WITH STYLE
+                </Text>
+              </View>
+
             </View>
 
-            <View style={styles.floatingLogo}>
-              <Text style={styles.floatingLogoText}>MF</Text>
-            </View>
           </View>
         </View>
 
-        {/* PICKUP / DROP */}
-        <Pressable style={styles.routeBar} onPress={onBookRide}>
-          <View style={styles.routeSection}>
-            <View style={styles.greenDotBox}>
+
+        {/* =====================================================
+            LOCATION / DESTINATION
+        ===================================================== */}
+
+        <Pressable
+          style={styles.route}
+          onPress={onBookRide}
+        >
+
+          {/* PICKUP */}
+
+          <View style={styles.routePart}>
+
+            <View style={styles.greenBox}>
               <View style={styles.greenDot} />
             </View>
 
             <View>
-              <Text style={styles.routeSmall}>PICKUP</Text>
+              <Text style={styles.routeLabel}>
+                PICKUP
+              </Text>
+
               {locationLoading ? (
-                <View style={styles.loadingRow}>
-                  <ActivityIndicator size="small" color={COLORS.gold} />
-                  <Text style={styles.routeValue}>Detecting...</Text>
+                <View style={styles.loading}>
+
+                  <ActivityIndicator
+                    size="small"
+                    color={COLORS.gold}
+                  />
+
+                  <Text style={styles.routeValue}>
+                    Detecting...
+                  </Text>
+
                 </View>
               ) : (
                 <>
-                  <Text style={styles.routeValue}>{locationLabel}</Text>
-                  <Text style={styles.routeHint}>Use my location</Text>
+                  <Text style={styles.routeValue}>
+                    {locationLabel}
+                  </Text>
+
+                  <Text style={styles.routeHint}>
+                    Use my location
+                  </Text>
                 </>
               )}
             </View>
+
           </View>
+
+
+          {/* MIDDLE */}
 
           <View style={styles.routeMiddle}>
+
             <View style={styles.routeLine} />
-            <View style={styles.swapCircle}>
-              <Text style={styles.swapText}>⇄</Text>
+
+            <View style={styles.swap}>
+              <Text style={styles.swapText}>
+                ⇄
+              </Text>
             </View>
+
             <View style={styles.routeLine} />
+
           </View>
 
-          <View style={styles.routeSection}>
-            <View style={styles.redDotBox}>
+
+          {/* DROP */}
+
+          <View style={styles.routePart}>
+
+            <View style={styles.redBox}>
               <View style={styles.redDot} />
             </View>
 
             <View>
-              <Text style={styles.routeSmall}>DROP</Text>
-              <Text style={styles.routeValue}>Where are you going?</Text>
-              <Text style={styles.routeHint}>Search destination</Text>
+
+              <Text style={styles.routeLabel}>
+                DROP
+              </Text>
+
+              <Text style={styles.routeValue}>
+                Where are you going?
+              </Text>
+
+              <Text style={styles.routeHint}>
+                Search destination
+              </Text>
+
             </View>
+
           </View>
+
+
+          {/* ARROW */}
 
           <View style={styles.routeArrow}>
-            <Text style={styles.routeArrowText}>→</Text>
+            <Text style={styles.routeArrowText}>
+              →
+            </Text>
           </View>
+
         </Pressable>
 
-        {/* SERVICE GRID */}
-        <View style={styles.grid}>
-          <ServiceCard
-            label="CAR"
-            title="Ride"
-            subtitle="Book a ride"
-            background={COLORS.cream}
-            image={IMAGES.car}
+
+        {/* =====================================================
+            THREE MAIN RIDE SERVICES
+            AUTO / BIKE / CAR
+        ===================================================== */}
+
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 14,
+            marginTop: 20,
+          }}
+        >
+
+          {/* ================= AUTO ================= */}
+
+          <Pressable
             onPress={onBookRide}
-          />
+            style={{
+              flex: 1,
+              minHeight: 160,
+              backgroundColor: COLORS.auto,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: "#1E1E1E",
+              overflow: "hidden",
+              position: "relative",
+              padding: 14,
+            }}
+          >
 
-          <ServiceCard
-            label="BUS"
-            title="Bus"
-            subtitle="Tickets & Passes"
-            background={COLORS.bus}
-            image={IMAGES.bus}
-          />
+            <Text style={styles.cardLabel}>
+              AUTO
+            </Text>
 
-          <ServiceCard
-            label="TRAIN"
-            title="Train"
-            subtitle="Tickets"
-            background={COLORS.train}
-            image={IMAGES.train}
-          />
+            <Text style={styles.rideTitle}>
+              Auto
+            </Text>
 
-          <ServiceCard
-            label="MOVIES"
-            title="Movies"
-            subtitle="Book now"
-            background={COLORS.pink}
-            image={IMAGES.movie}
-          />
+            <Text style={styles.cardSub}>
+              Book an auto
+            </Text>
 
-          <ServiceCard
-            label="RECHARGE"
-            title="Recharge"
-            subtitle="Mobile & more"
-            background={COLORS.recharge}
-            image={IMAGES.recharge}
-          />
+            <Image
+              source={AUTO_IMAGE}
+              resizeMode="contain"
+              style={{
+                position: "absolute",
+                width: 150,
+                height: 105,
+                right: -8,
+                bottom: -3,
+              }}
+            />
 
-          <Pressable style={[styles.serviceCard, { backgroundColor: COLORS.more }]}>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardLabel}>MORE</Text>
-              <Text style={styles.cardTitle}>More</Text>
-              <Text style={styles.cardSubtitle}>Services</Text>
-              <View style={styles.smallArrow}>
-                <Text style={styles.smallArrowText}>→</Text>
-              </View>
-            </View>
-
-            <View style={styles.moreIcons}>
-              <View style={styles.moreIcon}><Text>✈</Text></View>
-              <View style={styles.moreIcon}><Text>▣</Text></View>
-              <View style={styles.moreIcon}><Text>✣</Text></View>
-              <View style={styles.moreIcon}><Text>⚙</Text></View>
-              <View style={styles.moreIcon}><Text>◎</Text></View>
-              <View style={styles.moreIcon}><Text>•••</Text></View>
-            </View>
           </Pressable>
+
+
+          {/* ================= BIKE ================= */}
+
+          <Pressable
+            onPress={onBookRide}
+            style={{
+              flex: 1,
+              minHeight: 160,
+              backgroundColor: COLORS.bike,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: "#1E1E1E",
+              overflow: "hidden",
+              position: "relative",
+              padding: 14,
+            }}
+          >
+
+            <Text style={styles.cardLabel}>
+              BIKE
+            </Text>
+
+            <Text style={styles.rideTitle}>
+              Bike
+            </Text>
+
+            <Text style={styles.cardSub}>
+              Book a bike
+            </Text>
+
+            <Image
+              source={BIKE_IMAGE}
+              resizeMode="contain"
+              style={{
+                position: "absolute",
+                width: 150,
+                height: 105,
+                right: -8,
+                bottom: -3,
+              }}
+            />
+
+          </Pressable>
+
+
+          {/* ================= CAR ================= */}
+
+          <Pressable
+            onPress={onBookRide}
+            style={{
+              flex: 1,
+              minHeight: 160,
+              backgroundColor: COLORS.car,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: "#1E1E1E",
+              overflow: "hidden",
+              position: "relative",
+              padding: 14,
+            }}
+          >
+
+            <Text style={styles.cardLabel}>
+              CAR
+            </Text>
+
+            <Text style={styles.rideTitle}>
+              Car
+            </Text>
+
+            <Text style={styles.cardSub}>
+              Book a car
+            </Text>
+
+            <Image
+              source={CAR_IMAGE}
+              resizeMode="contain"
+              style={{
+                position: "absolute",
+                width: 160,
+                height: 105,
+                right: -10,
+                bottom: -2,
+              }}
+            />
+
+          </Pressable>
+
         </View>
 
-        {/* REWARDS */}
-        <Pressable style={styles.rewardsCard}>
+
+        {/* =====================================================
+            MORE SERVICES
+        ===================================================== */}
+
+        <Pressable
+          onPress={() =>
+            setShowMoreServices(!showMoreServices)
+          }
+          style={{
+            marginTop: 14,
+            minHeight: 100,
+            borderRadius: 20,
+            backgroundColor: COLORS.more,
+            borderWidth: 1,
+            borderColor: "#1E1E1E",
+            padding: 16,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+
+          <View style={{ flex: 1 }}>
+
+            <Text style={styles.cardLabel}>
+              MORE SERVICES
+            </Text>
+
+            <Text style={styles.rideTitle}>
+              More
+            </Text>
+
+            <Text style={styles.cardSub}>
+              Bus • Train • Movies • Recharge
+            </Text>
+
+          </View>
+
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: COLORS.white,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: "900",
+                color: COLORS.navy,
+              }}
+            >
+              {showMoreServices ? "↑" : "↓"}
+            </Text>
+          </View>
+
+        </Pressable>
+
+
+        {/* =====================================================
+            MORE SERVICES PANEL
+        ===================================================== */}
+
+        {showMoreServices && (
+
+          <View
+            style={{
+              marginTop: 10,
+              padding: 12,
+              borderRadius: 20,
+              backgroundColor: COLORS.white,
+              borderWidth: 1,
+              borderColor: COLORS.line,
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+
+            {/* BUS */}
+
+            <Pressable
+              onPress={() => openService("Bus Tickets")}
+              style={{
+                width: "48%",
+                minHeight: 95,
+                borderRadius: 16,
+                backgroundColor: "#E8F7F6",
+                padding: 12,
+                justifyContent: "center",
+              }}
+            >
+
+              <Text style={styles.cardLabel}>
+                BUS
+              </Text>
+
+              <Text style={styles.cardTitle}>
+                Bus Tickets
+              </Text>
+
+              <Text style={styles.cardSub}>
+                Book bus tickets
+              </Text>
+
+            </Pressable>
+
+
+            {/* TRAIN */}
+
+            <Pressable
+              onPress={() => openService("Train Tickets")}
+              style={{
+                width: "48%",
+                minHeight: 95,
+                borderRadius: 16,
+                backgroundColor: "#EAF0FF",
+                padding: 12,
+                justifyContent: "center",
+              }}
+            >
+
+              <Text style={styles.cardLabel}>
+                TRAIN
+              </Text>
+
+              <Text style={styles.cardTitle}>
+                Train Tickets
+              </Text>
+
+              <Text style={styles.cardSub}>
+                Book train tickets
+              </Text>
+
+            </Pressable>
+
+
+            {/* MOVIES */}
+
+            <Pressable
+              onPress={() => openService("Movie Tickets")}
+              style={{
+                width: "48%",
+                minHeight: 95,
+                borderRadius: 16,
+                backgroundColor: COLORS.pink,
+                padding: 12,
+                justifyContent: "center",
+              }}
+            >
+
+              <Text style={styles.cardLabel}>
+                MOVIES
+              </Text>
+
+              <Text style={styles.cardTitle}>
+                Movies
+              </Text>
+
+              <Text style={styles.cardSub}>
+                Book movie tickets
+              </Text>
+
+            </Pressable>
+
+
+            {/* RECHARGE */}
+
+            <Pressable
+              onPress={() => openService("Recharge")}
+              style={{
+                width: "48%",
+                minHeight: 95,
+                borderRadius: 16,
+                backgroundColor: COLORS.recharge,
+                padding: 12,
+                justifyContent: "center",
+              }}
+            >
+
+              <Text style={styles.cardLabel}>
+                RECHARGE
+              </Text>
+
+              <Text style={styles.cardTitle}>
+                Recharge
+              </Text>
+
+              <Text style={styles.cardSub}>
+                Mobile & more
+              </Text>
+
+            </Pressable>
+
+          </View>
+
+        )}
+
+
+        {/* =====================================================
+            REWARDS
+        ===================================================== */}
+
+        <Pressable style={styles.rewards}>
+
           <View style={styles.rewardLogo}>
-            <Text style={styles.rewardLogoText}>MF</Text>
+            <Image
+              source={MF_LOGO}
+              style={styles.rewardImage}
+              resizeMode="contain"
+            />
           </View>
 
-          <View style={styles.rewardTextBox}>
-            <Text style={styles.rewardTitle}>MF Rewards</Text>
-            <Text style={styles.rewardSubtitle}>More rides. More rewards.</Text>
+          <View style={styles.rewardCopy}>
+
+            <Text style={styles.rewardTitle}>
+              MF Rewards
+            </Text>
+
+            <Text style={styles.rewardSub}>
+              More rides. More rewards.
+            </Text>
+
           </View>
 
-          <View style={styles.rewardPoints}>
-            <Text style={styles.pointsNumber}>0</Text>
-            <Text style={styles.pointsText}>POINTS</Text>
+          <View style={styles.points}>
+
+            <Text style={styles.pointsNumber}>
+              0
+            </Text>
+
+            <Text style={styles.pointsLabel}>
+              POINTS
+            </Text>
+
           </View>
 
-          <Text style={styles.rewardArrow}>→</Text>
+          <Text style={styles.rewardArrow}>
+            →
+          </Text>
+
         </Pressable>
 
-        {/* CTA */}
-        <Pressable style={styles.startButton} onPress={onBookRide}>
-          <Text style={styles.startButtonText}>Start your journey</Text>
-          <View style={styles.startArrowBox}>
-            <Text style={styles.startArrow}>→</Text>
-          </View>
-        </Pressable>
 
-        {/* LOGIN */}
-        <View style={styles.loginRow}>
-          <Text style={styles.loginNormal}>Already have an account? </Text>
-          <Text style={styles.loginText}>Log in</Text>
-        </View>
+        {/* USER */}
 
-        {/* TRUST */}
-        <View style={styles.trustRow}>
-          <TrustItem text="Safe Rides" />
-          <TrustItem text="Verified Partners" />
-          <TrustItem text="Secure Payments" />
-          <TrustItem text="24/7 Support" />
-        </View>
+        <Text style={styles.welcome}>
+          Welcome, {displayName}
+        </Text>
 
-        <Text style={styles.welcomeUser}>Welcome, {displayName}</Text>
       </ScrollView>
     </View>
   );
 }
 
-function ServiceCard({
+function Feature({ icon, text }: { icon: string; text: string }) {
+  return (
+    <View style={styles.feature}>
+      <Text style={styles.featureIcon}>{icon}</Text>
+      <Text style={styles.featureText}>{text}</Text>
+    </View>
+  );
+}
+
+function RideCard({
   label,
   title,
   subtitle,
-  background,
+  bg,
   image,
   onPress,
 }: {
   label: string;
   title: string;
   subtitle: string;
-  background: string;
-  image: string;
-  onPress?: () => void;
+  bg: string;
+  image: any;
+  onPress: () => void;
 }) {
   return (
     <Pressable
-      style={[styles.serviceCard, { backgroundColor: background }]}
       onPress={onPress}
+      style={({ pressed }) => [
+        styles.rideCard,
+        { backgroundColor: bg },
+        pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
+      ]}
     >
-      <View style={styles.cardContent}>
+      <View style={styles.rideCopy}>
         <Text style={styles.cardLabel}>{label}</Text>
-        <Text style={styles.cardTitle}>{title}</Text>
-        <Text style={styles.cardSubtitle}>{subtitle}</Text>
-
-        <View style={styles.smallArrow}>
-          <Text style={styles.smallArrowText}>→</Text>
+        <Text style={styles.rideTitle}>{title}</Text>
+        <Text style={styles.cardSub}>{subtitle}</Text>
+        <View style={styles.circleArrow}>
+          <Text style={styles.circleArrowText}>→</Text>
         </View>
       </View>
 
-      <Image
-        source={{ uri: image }}
-        style={styles.cardImage}
-        resizeMode="cover"
-      />
+      <Image source={image} style={styles.rideImage} resizeMode="contain" />
+
+      <View style={styles.cardMF}>
+        <Image source={MF_LOGO} style={styles.cardMFImage} resizeMode="contain" />
+      </View>
     </Pressable>
   );
 }
 
-function TrustItem({ text }: { text: string }) {
+function SimpleCard({
+  label,
+  title,
+  subtitle,
+  bg,
+  image,
+}: {
+  label: string;
+  title: string;
+  subtitle: string;
+  bg: string;
+  image: string;
+}) {
   return (
-    <View style={styles.trustItem}>
-      <View style={styles.trustCheck}>
-        <Text style={styles.trustCheckText}>✓</Text>
+    <Pressable style={[styles.simpleCard, { backgroundColor: bg }]}>
+      <View style={styles.simpleCopy}>
+        <Text style={styles.cardLabel}>{label}</Text>
+        <Text style={styles.cardTitle}>{title}</Text>
+        <Text style={styles.cardSub}>{subtitle}</Text>
+        <View style={styles.circleArrow}>
+          <Text style={styles.circleArrowText}>→</Text>
+        </View>
       </View>
-      <Text style={styles.trustText}>{text}</Text>
-    </View>
+      <Image source={{ uri: image }} style={styles.simpleImage} resizeMode="cover" />
+    </Pressable>
   );
 }
 
@@ -401,355 +872,341 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
 
-  scrollContent: {
+  scroll: {
     width: "100%",
-    maxWidth: 1400,
+    maxWidth: 1450,
     alignSelf: "center",
-    paddingHorizontal: Platform.OS === "web" ? 48 : 16,
-    paddingTop: Platform.OS === "web" ? 14 : 12,
-    paddingBottom: 45,
+    paddingHorizontal: Platform.OS === "web" ? 42 : 16,
+    paddingTop: 12,
+    paddingBottom: 38,
   },
 
   header: {
-    minHeight: 76,
-    backgroundColor: COLORS.white,
+    height: 76,
     borderRadius: 20,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    paddingHorizontal: 22,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
-    borderWidth: 1,
-    borderColor: "#E9E0D0",
-    marginBottom: 8,
     shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.055,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
   },
 
-  brandContainer: {
+  brand: {
     flexDirection: "row",
     alignItems: "center",
   },
 
-  wingLogo: {
-    width: 112,
-    height: 58,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 5,
-  },
-
-  wingLeft: {
-    width: 35,
-    height: 13,
-    backgroundColor: COLORS.navy,
-    transform: [{ skewX: "-25deg" }],
-    marginRight: -9,
-  },
-
-  wingRight: {
-    width: 35,
-    height: 13,
-    backgroundColor: COLORS.navy,
-    transform: [{ skewX: "25deg" }],
-    marginLeft: -9,
-  },
-
-  logoCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: COLORS.navy,
-    borderWidth: 4,
+  logoWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+    borderWidth: 2,
     borderColor: COLORS.gold,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
-    shadowColor: COLORS.gold,
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    backgroundColor: COLORS.navy,
+    marginRight: 12,
   },
 
-  logoText: {
-    color: COLORS.gold,
-    fontSize: 22,
-    fontWeight: "900",
+  logo: {
+    width: "100%",
+    height: "100%",
   },
 
   brandName: {
     color: COLORS.navy,
     fontSize: 21,
     fontWeight: "900",
-    letterSpacing: 1.3,
+    letterSpacing: 1,
   },
 
   brandTagline: {
-    color: "#687286",
-    fontSize: 11,
+    color: COLORS.muted,
+    fontSize: 10,
     marginTop: 2,
   },
 
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
 
-  securePill: {
-    height: 42,
+  offers: {
+    height: 43,
     paddingHorizontal: 16,
-    borderRadius: 22,
-    backgroundColor: "#FFF8E7",
+    borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#EAD9B2",
+    borderColor: "#EEDDB9",
+    backgroundColor: "#FFF9EA",
     flexDirection: "row",
     alignItems: "center",
+    gap: 7,
   },
 
-  secureCheck: {
-    color: COLORS.green,
+  offersIcon: {
+    color: COLORS.goldDark,
     fontSize: 16,
     fontWeight: "900",
-    marginRight: 5,
   },
 
-  secureText: {
+  offersText: {
     color: COLORS.navy,
     fontSize: 11,
     fontWeight: "900",
   },
 
-  menuButton: {
+  menu: {
     width: 48,
     height: 48,
     borderRadius: 15,
     backgroundColor: COLORS.gold,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
 
   menuText: {
     color: COLORS.white,
-    fontSize: 27,
+    fontSize: 25,
     fontWeight: "900",
   },
 
   hero: {
-    minHeight: Platform.OS === "web" ? 420 : 480,
-    backgroundColor: COLORS.cream,
+    marginTop: 12,
+    minHeight: Platform.OS === "web" ? 410 : 480,
     borderRadius: 30,
     overflow: "hidden",
-    position: "relative",
-    flexDirection: "row",
+    backgroundColor: COLORS.cream,
     borderWidth: 1,
-    borderColor: "#EBD9AC",
+    borderColor: "#EEDAAE",
+    flexDirection: "row",
+    position: "relative",
   },
 
-  heroBgGlow: {
-    position: "absolute",
-    right: -80,
-    top: 30,
-    width: 620,
-    height: 390,
-    borderRadius: 220,
-    backgroundColor: "#F8E2A8",
-  },
-
-  heroLeft: {
-    flex: 0.9,
+  heroCopy: {
+    width: "39%",
+    paddingLeft: Platform.OS === "web" ? 46 : 24,
+    paddingRight: 18,
     justifyContent: "center",
-    paddingHorizontal: Platform.OS === "web" ? 48 : 24,
-    paddingVertical: 38,
     zIndex: 3,
   },
 
-  premiumBadge: {
+  badge: {
     alignSelf: "flex-start",
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    paddingHorizontal: 13,
+    paddingHorizontal: 12,
     paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: "#E9DDBF",
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#EADDBD",
-    marginBottom: 23,
+    marginBottom: 20,
   },
 
   badgeDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
     backgroundColor: COLORS.gold,
-    marginRight: 8,
+    marginRight: 7,
   },
 
   badgeText: {
     color: COLORS.navy,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "900",
-    letterSpacing: 1.25,
+    letterSpacing: 1.1,
   },
 
   heroTitle: {
     color: COLORS.navy,
-    fontSize: Platform.OS === "web" ? 48 : 39,
-    lineHeight: Platform.OS === "web" ? 53 : 43,
+    fontSize: Platform.OS === "web" ? 50 : 38,
+    lineHeight: Platform.OS === "web" ? 53 : 42,
     fontWeight: "900",
-    letterSpacing: -1.6,
+    letterSpacing: -1.8,
   },
 
-  heroGoldTitle: {
+  heroGold: {
     color: COLORS.goldDark,
-    fontSize: Platform.OS === "web" ? 48 : 39,
-    lineHeight: Platform.OS === "web" ? 53 : 43,
+    fontSize: Platform.OS === "web" ? 50 : 38,
+    lineHeight: Platform.OS === "web" ? 53 : 42,
     fontWeight: "900",
-    letterSpacing: -1.6,
+    letterSpacing: -1.8,
   },
 
-  heroSubtitle: {
-    color: "#34415A",
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 13,
-    marginBottom: 23,
+  heroSub: {
+    color: "#3D485B",
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 14,
+    marginBottom: 21,
   },
 
   featureRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 9,
+    gap: 7,
   },
 
-  featurePill: {
-    backgroundColor: COLORS.white,
+  feature: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: 18,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
+    backgroundColor: COLORS.white,
     flexDirection: "row",
     alignItems: "center",
   },
 
   featureIcon: {
-    color: COLORS.navy,
-    fontSize: 13,
+    color: COLORS.goldDark,
+    fontSize: 11,
     fontWeight: "900",
     marginRight: 5,
   },
 
   featureText: {
     color: COLORS.navy,
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "900",
   },
 
-  heroCarArea: {
-    flex: 1.25,
-    position: "relative",
-    justifyContent: "center",
+  heroVisual: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: Platform.OS === "web" ? 400 : 270,
+    justifyContent: "flex-end",
     alignItems: "center",
     overflow: "hidden",
+    position: "relative",
+    paddingHorizontal: Platform.OS === "web" ? 18 : 8,
+    paddingBottom: Platform.OS === "web" ? 18 : 10,
   },
 
-  carGlow: {
+  heroBackgroundImage: {
     position: "absolute",
-    right: 20,
-    width: "92%",
-    height: 260,
-    borderRadius: 150,
-    backgroundColor: "#F7DFA0",
+    right: 0,
+    top: 0,
+    width: "76%",
+    height: "100%",
+    opacity: 0.95,
+    zIndex: 1,
+  },
+
+  heroBackgroundImageStyle: {
+    width: "100%",
+    height: "100%",
+  },
+
+  heroVehicles: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 8,
+    height: "72%",
+    zIndex: 4,
+  },
+
+  heroAuto: {
+    position: "absolute",
+    width: "29%",
+    height: "70%",
+    left: "2%",
+    bottom: 0,
+    zIndex: 2,
+  },
+
+  heroBike: {
+    position: "absolute",
+    width: "38%",
+    height: "82%",
+    left: "27%",
+    bottom: -2,
+    zIndex: 4,
   },
 
   heroCar: {
-    width: "112%",
-    height: Platform.OS === "web" ? 390 : 310,
-    zIndex: 2,
-    marginRight: -35,
+    position: "absolute",
+    width: "47%",
+    height: "76%",
+    right: "-2%",
+    bottom: 0,
+    zIndex: 3,
   },
 
-  carBrandPlate: {
+  heroBrandPlate: {
     position: "absolute",
-    top: 25,
-    right: 25,
-    width: 125,
-    height: 57,
-    borderRadius: 17,
+    top: 18,
+    right: 18,
+    minWidth: 118,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 14,
     backgroundColor: COLORS.navy,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 5,
-  },
-
-  carBrandMF: {
-    color: COLORS.gold,
-    fontSize: 17,
-    fontWeight: "900",
-    letterSpacing: 2,
-  },
-
-  carBrandSmall: {
-    color: COLORS.white,
-    fontSize: 7,
-    fontWeight: "900",
-    letterSpacing: 1,
-    marginTop: 3,
-  },
-
-  floatingLogo: {
-    position: "absolute",
-    right: 38,
-    top: 88,
-    width: 50,
-    height: 50,
-    borderRadius: 15,
-    backgroundColor: COLORS.gold,
-    borderWidth: 3,
-    borderColor: COLORS.white,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 6,
-  },
-
-  floatingLogoText: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  routeBar: {
-    minHeight: 100,
-    backgroundColor: COLORS.white,
-    borderRadius: 25,
-    marginTop: -2,
-    paddingHorizontal: 22,
+    borderWidth: 1,
+    borderColor: COLORS.gold,
     flexDirection: "row",
     alignItems: "center",
-    zIndex: 10,
-    borderWidth: 1,
-    borderColor: "#E6DDCE",
-    shadowColor: "#000",
-    shadowOpacity: 0.09,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 5 },
+    zIndex: 20,
   },
 
-  routeSection: {
+  heroBrandLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 7,
+  },
+
+  heroBrandName: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+  },
+
+  heroBrandSmall: {
+    color: "#AAB3C1",
+    fontSize: 6,
+    fontWeight: "800",
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+
+  route: {
+    minHeight: 96,
+    marginTop: 12,
+    paddingHorizontal: 19,
+    borderRadius: 23,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.065,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+  },
+
+  routePart: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
   },
 
-  greenDotBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "#E2F6ED",
-    justifyContent: "center",
+  greenBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: "#E2F6EC",
     alignItems: "center",
-    marginRight: 11,
+    justifyContent: "center",
+    marginRight: 10,
   },
 
   greenDot: {
@@ -759,14 +1216,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.green,
   },
 
-  redDotBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+  redBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
     backgroundColor: "#FDE5E4",
-    justifyContent: "center",
     alignItems: "center",
-    marginRight: 11,
+    justifyContent: "center",
+    marginRight: 10,
   },
 
   redDot: {
@@ -776,8 +1233,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.red,
   },
 
-  routeSmall: {
-    color: "#858B96",
+  routeLabel: {
+    color: "#8B929E",
     fontSize: 8,
     fontWeight: "900",
     letterSpacing: 1.5,
@@ -785,21 +1242,21 @@ const styles = StyleSheet.create({
 
   routeValue: {
     color: COLORS.navy,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "900",
     marginTop: 4,
   },
 
   routeHint: {
-    color: "#7B8491",
-    fontSize: 10,
-    marginTop: 3,
+    color: COLORS.muted,
+    fontSize: 9,
+    marginTop: 2,
   },
 
-  loadingRow: {
+  loading: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
     marginTop: 4,
   },
 
@@ -810,24 +1267,24 @@ const styles = StyleSheet.create({
   },
 
   routeLine: {
-    width: 42,
+    width: 36,
     height: 1,
-    backgroundColor: "#DDCEB5",
+    backgroundColor: "#DDCFB5",
   },
 
-  swapCircle: {
+  swap: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#FFF1C9",
-    justifyContent: "center",
+    backgroundColor: "#FFF2CC",
     alignItems: "center",
+    justifyContent: "center",
     marginHorizontal: 4,
   },
 
   swapText: {
     color: COLORS.goldDark,
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "900",
   },
 
@@ -838,7 +1295,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gold,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 12,
+    marginLeft: 10,
   },
 
   routeArrowText: {
@@ -846,97 +1303,196 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
 
-  grid: {
-    marginTop: 18,
+  sectionHead: {
+    marginTop: 22,
+    marginBottom: 12,
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+
+  eyebrow: {
+    color: COLORS.goldDark,
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1.7,
+  },
+
+  sectionTitle: {
+    color: COLORS.navy,
+    fontSize: 24,
+    fontWeight: "900",
+    marginTop: 3,
+  },
+
+  sectionHint: {
+    color: COLORS.muted,
+    fontSize: 9,
+  },
+
+  rideGrid: {
+    flexDirection: "row",
     gap: 12,
   },
 
-  serviceCard: {
-    width: "calc(33.333% - 8px)" as any,
-    minHeight: 142,
+  rideCard: {
+    flex: 1,
+    minHeight: 155,
     borderRadius: 22,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#DDD5C7",
+    borderColor: COLORS.line,
     flexDirection: "row",
     position: "relative",
   },
 
-  cardContent: {
+  rideCopy: {
     flex: 1,
-    padding: 18,
+    padding: 16,
     justifyContent: "center",
     zIndex: 3,
   },
 
   cardLabel: {
-    color: "#667083",
+    color: "#667184",
     fontSize: 8,
     fontWeight: "900",
     letterSpacing: 1.5,
-    marginBottom: 7,
+    marginBottom: 6,
   },
 
-  cardTitle: {
+  rideTitle: {
     color: COLORS.navy,
     fontSize: 22,
     fontWeight: "900",
   },
 
-  cardSubtitle: {
-    color: "#687386",
-    fontSize: 11,
+  cardTitle: {
+    color: COLORS.navy,
+    fontSize: 21,
+    fontWeight: "900",
+  },
+
+  cardSub: {
+    color: "#6B7585",
+    fontSize: 9,
     marginTop: 4,
   },
 
-  smallArrow: {
+  circleArrow: {
     width: 34,
     height: 34,
     borderRadius: 17,
     backgroundColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 11,
+    marginTop: 10,
   },
 
-  smallArrowText: {
+  circleArrowText: {
     color: COLORS.navy,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "900",
   },
 
-  cardImage: {
-    width: "52%",
+  rideImage: {
+    width: "54%",
     height: "100%",
   },
 
-  moreIcons: {
-    width: "48%",
-    padding: 13,
+  cardMF: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 29,
+    height: 29,
+    borderRadius: 15,
+    backgroundColor: COLORS.navy,
+    borderWidth: 1,
+    borderColor: COLORS.gold,
+    overflow: "hidden",
+    zIndex: 5,
+  },
+
+  cardMFImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  secondary: {
+    marginTop: 12,
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    alignContent: "center",
+    gap: 12,
+  },
+
+  simpleCard: {
+    flex: 1,
+    minHeight: 138,
+    borderRadius: 21,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    flexDirection: "row",
+  },
+
+  simpleCopy: {
+    flex: 1,
+    padding: 16,
     justifyContent: "center",
   },
 
+  simpleImage: {
+    width: "48%",
+    height: "100%",
+  },
+
+  moreCard: {
+    flex: 1,
+    minHeight: 138,
+    borderRadius: 21,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    flexDirection: "row",
+  },
+
+  moreCopy: {
+    flex: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+
+  iconGrid: {
+    width: "47%",
+    padding: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    justifyContent: "center",
+    alignContent: "center",
+  },
+
   moreIcon: {
-    width: 48,
-    height: 43,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.42)",
+    width: 42,
+    height: 40,
+    borderRadius: 11,
+    backgroundColor: "rgba(255,255,255,0.58)",
     alignItems: "center",
     justifyContent: "center",
   },
 
-  rewardsCard: {
-    minHeight: 68,
+  moreIconText: {
+    color: COLORS.navy,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+
+  rewards: {
     marginTop: 13,
-    backgroundColor: COLORS.navy,
+    minHeight: 70,
     borderRadius: 19,
-    paddingHorizontal: 18,
+    paddingHorizontal: 17,
+    backgroundColor: COLORS.navy,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -945,22 +1501,19 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: COLORS.navy,
-    borderWidth: 3,
+    overflow: "hidden",
+    borderWidth: 2,
     borderColor: COLORS.gold,
-    alignItems: "center",
-    justifyContent: "center",
   },
 
-  rewardLogoText: {
-    color: COLORS.gold,
-    fontSize: 16,
-    fontWeight: "900",
+  rewardImage: {
+    width: "100%",
+    height: "100%",
   },
 
-  rewardTextBox: {
+  rewardCopy: {
     flex: 1,
-    marginLeft: 13,
+    marginLeft: 12,
   },
 
   rewardTitle: {
@@ -969,15 +1522,15 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
-  rewardSubtitle: {
-    color: "#AAB2C1",
-    fontSize: 10,
+  rewardSub: {
+    color: "#AAB3C1",
+    fontSize: 9,
     marginTop: 3,
   },
 
-  rewardPoints: {
+  points: {
     alignItems: "center",
-    marginRight: 15,
+    marginRight: 16,
   },
 
   pointsNumber: {
@@ -986,10 +1539,11 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
-  pointsText: {
-    color: "#B8BFCA",
+  pointsLabel: {
+    color: "#AAB3C1",
     fontSize: 7,
     fontWeight: "900",
+    letterSpacing: 1,
   },
 
   rewardArrow: {
@@ -997,99 +1551,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
 
-  startButton: {
-    height: 62,
-    marginTop: 12,
-    borderRadius: 18,
-    backgroundColor: COLORS.gold,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-    shadowColor: COLORS.goldDark,
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-  },
-
-  startButtonText: {
-    color: COLORS.white,
-    fontSize: 17,
-    fontWeight: "900",
-  },
-
-  startArrowBox: {
-    position: "absolute",
-    right: 9,
-    width: 45,
-    height: 45,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.23)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  startArrow: {
-    color: COLORS.white,
-    fontSize: 23,
-  },
-
-  loginRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 12,
-  },
-
-  loginNormal: {
-    color: "#7B8390",
-    fontSize: 11,
-  },
-
-  loginText: {
-    color: COLORS.goldDark,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-
-  trustRow: {
-    marginTop: 25,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 12,
-    paddingHorizontal: 6,
-  },
-
-  trustItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  trustCheck: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#E3F4E8",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 6,
-  },
-
-  trustCheckText: {
-    color: COLORS.green,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-
-  trustText: {
-    color: "#687181",
-    fontSize: 9,
-  },
-
-  welcomeUser: {
+  welcome: {
     textAlign: "center",
-    color: "#A0A5AD",
+    color: "#A2A8B1",
     fontSize: 9,
-    marginTop: 18,
+    marginTop: 16,
   },
 });
 

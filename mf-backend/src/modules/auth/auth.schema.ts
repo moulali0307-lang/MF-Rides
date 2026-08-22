@@ -45,6 +45,10 @@ export const registerSchema = z.object({
    PUBLIC USER LOGIN
    ========================================================= */
 
+/* =========================================================
+   RIDER LOGIN
+   ========================================================= */
+
 export const loginSchema = z.object({
   phoneNumber: z
     .string()
@@ -56,6 +60,22 @@ export const loginSchema = z.object({
     .min(1, "Password is required"),
 });
 
+
+/* =========================================================
+   RIDER LOGIN OTP VERIFICATION
+   ========================================================= */
+
+export const riderVerifyOtpSchema = z.object({
+  phoneNumber: z
+    .string()
+    .trim()
+    .min(1, "Phone number is required"),
+
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "OTP must be exactly 6 digits"),
+});
 
 /* =========================================================
    ADMIN REGISTRATION
@@ -206,9 +226,14 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export type AdminRegisterInput = z.infer<typeof adminRegisterSchema>;
+export type RiderVerifyOtpInput =
+  z.infer<typeof riderVerifyOtpSchema>;
 
-export type AdminLoginInput = z.infer<typeof adminLoginSchema>;
+export type AdminRegisterInput =
+  z.infer<typeof adminRegisterSchema>;
+
+export type AdminLoginInput =
+  z.infer<typeof adminLoginSchema>;
 
 export type AdminVerifyOtpInput =
   z.infer<typeof adminVerifyOtpSchema>;

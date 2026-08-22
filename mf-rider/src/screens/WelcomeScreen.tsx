@@ -1,5 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import {
+  Image,
+  ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,6 +9,12 @@ import {
   View,
 } from "react-native";
 import { colors, radius, spacing } from "../theme/colors";
+
+const AUTO_IMAGE = require("../assets/mf-auto.png");
+const BIKE_IMAGE = require("../assets/mf-bike.png");
+const CAR_IMAGE = require("../assets/mf-car.png");
+const MF_LOGO = require("../assets/mf1.png");
+const HERO_IMAGE = require("../assets/mf2.png");
 
 interface Props {
   onGoToRegister: () => void;
@@ -85,46 +93,13 @@ export function WelcomeScreen({
             </Text>
           </View>
 
-          {/* Scenic journey visual */}
+          {/* SINGLE MF2 HERO IMAGE */}
           <View style={styles.scenery}>
-            {/* sky */}
-            <View style={styles.sun} />
-
-            {/* mountains */}
-            <View style={styles.mountainBack} />
-            <View style={styles.mountainMiddle} />
-            <View style={styles.mountainFront} />
-
-            {/* trees */}
-            <View style={[styles.tree, styles.treeOne]} />
-            <View style={[styles.tree, styles.treeTwo]} />
-            <View style={[styles.tree, styles.treeThree]} />
-            <View style={[styles.tree, styles.treeFour]} />
-
-            {/* road */}
-            <View style={styles.roadOuter}>
-              <View style={styles.roadInner}>
-                <View style={styles.roadMarkOne} />
-                <View style={styles.roadMarkTwo} />
-                <View style={styles.roadMarkThree} />
-              </View>
-            </View>
-
-            {/* car */}
-            <View style={styles.heroCar}>
-              <View style={styles.heroCarRoof}>
-                <View style={styles.heroWindowOne} />
-                <View style={styles.heroWindowTwo} />
-              </View>
-
-              <View style={styles.heroCarBody}>
-                <View style={styles.heroLightOne} />
-                <View style={styles.heroLightTwo} />
-              </View>
-
-              <View style={styles.heroWheelOne} />
-              <View style={styles.heroWheelTwo} />
-            </View>
+            <Image
+              source={HERO_IMAGE}
+              resizeMode="contain"
+              style={styles.heroSingleImage}
+            />
           </View>
         </View>
 
@@ -556,227 +531,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 
-  /* SCENERY */
+  /* SINGLE MF2 HERO IMAGE */
 
   scenery: {
     position: "absolute",
     right: 0,
     bottom: 0,
-    width: "57%",
+    width: "61%",
     height: "100%",
+    justifyContent: "flex-end",
+    alignItems: "flex-end",
     overflow: "hidden",
   },
 
-  sun: {
-    position: "absolute",
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#FFD978",
-    top: 34,
-    right: 55,
-    opacity: 0.75,
-  },
-
-  mountainBack: {
-    position: "absolute",
-    width: 180,
-    height: 150,
-    backgroundColor: "#D5D9D8",
-    transform: [{ rotate: "45deg" }],
-    right: -35,
-    top: 28,
-    borderRadius: 18,
-  },
-
-  mountainMiddle: {
-    position: "absolute",
-    width: 145,
-    height: 130,
-    backgroundColor: "#A8B0AE",
-    transform: [{ rotate: "45deg" }],
-    right: 42,
-    top: 55,
-    borderRadius: 18,
-  },
-
-  mountainFront: {
-    position: "absolute",
-    width: 155,
-    height: 100,
-    backgroundColor: "#7D8A80",
-    transform: [{ rotate: "42deg" }],
-    right: 95,
-    top: 90,
-    borderRadius: 20,
-  },
-
-  tree: {
-    position: "absolute",
-    width: 10,
-    height: 28,
-    backgroundColor: "#50684E",
-    borderRadius: 5,
-    bottom: 75,
-  },
-
-  treeOne: {
-    right: 25,
-  },
-
-  treeTwo: {
-    right: 48,
-    height: 36,
-  },
-
-  treeThree: {
-    right: 75,
-    height: 23,
-  },
-
-  treeFour: {
-    right: 105,
-    height: 31,
-  },
-
-  roadOuter: {
-    position: "absolute",
-    width: 300,
-    height: 110,
-    backgroundColor: "#D6C7AC",
-    transform: [{ rotate: "-13deg" }],
-    bottom: -55,
-    right: -70,
-    borderRadius: 55,
-  },
-
-  roadInner: {
-    position: "absolute",
-    width: 280,
-    height: 84,
-    backgroundColor: "#F3E8D3",
-    borderRadius: 42,
-    top: 13,
-    left: 10,
-    overflow: "hidden",
-  },
-
-  roadMarkOne: {
-    position: "absolute",
-    width: 35,
-    height: 3,
-    backgroundColor: "#D8A73C",
-    top: 40,
-    left: 40,
-  },
-
-  roadMarkTwo: {
-    position: "absolute",
-    width: 35,
-    height: 3,
-    backgroundColor: "#D8A73C",
-    top: 40,
-    left: 110,
-  },
-
-  roadMarkThree: {
-    position: "absolute",
-    width: 35,
-    height: 3,
-    backgroundColor: "#D8A73C",
-    top: 40,
-    left: 180,
-  },
-
-  /* HERO CAR */
-
-  heroCar: {
-    position: "absolute",
-    width: 92,
-    height: 60,
-    right: 65,
-    bottom: 42,
-  },
-
-  heroCarRoof: {
-    position: "absolute",
-    width: 55,
-    height: 27,
-    left: 18,
-    top: 0,
-    backgroundColor: "#343B4B",
-    borderRadius: 12,
-  },
-
-  heroWindowOne: {
-    position: "absolute",
-    width: 21,
-    height: 15,
-    backgroundColor: "#B8C1CA",
-    left: 5,
-    top: 5,
-    borderRadius: 5,
-  },
-
-  heroWindowTwo: {
-    position: "absolute",
-    width: 21,
-    height: 15,
-    backgroundColor: "#B8C1CA",
-    right: 5,
-    top: 5,
-    borderRadius: 5,
-  },
-
-  heroCarBody: {
-    position: "absolute",
-    width: 92,
-    height: 31,
-    bottom: 6,
-    backgroundColor: "#F4F1E8",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#D0C9B9",
-  },
-
-  heroLightOne: {
-    position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#FFE18A",
-    left: 7,
-    top: 11,
-  },
-
-  heroLightTwo: {
-    position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#FFE18A",
-    right: 7,
-    top: 11,
-  },
-
-  heroWheelOne: {
-    position: "absolute",
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#202533",
-    bottom: 0,
-    left: 13,
-  },
-
-  heroWheelTwo: {
-    position: "absolute",
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#202533",
-    bottom: 0,
-    right: 13,
+  heroSingleImage: {
+    width: "100%",
+    height: "100%",
   },
 
   /* ROUTE */
